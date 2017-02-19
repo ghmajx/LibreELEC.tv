@@ -298,6 +298,8 @@ if [ ! -f $STAMP ]; then
       else
         if [ "$TARGET" = "target" ]; then
           echo "Executing (target): make $PKG_MAKE_OPTS_TARGET" | tr -s " "
+          printf ">> Omegamoon - Build directory: ${PWD}\n" ' '>&$SILENT_OUT
+          printf ">> Omegamoon - Build command  : make ${PKG_MAKE_OPTS_TARGET}\n" ' '>&$SILENT_OUT
           make $PKG_MAKE_OPTS_TARGET
         elif [ "$TARGET" = "host" ]; then
           echo "Executing (host): make $PKG_MAKE_OPTS_HOST" | tr -s " "

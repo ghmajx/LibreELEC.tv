@@ -495,6 +495,13 @@ show_config() {
   config_message="$config_message\n - Default Skin:\t\t\t $SKIN_DEFAULT"
   config_message="$config_message\n - Include extra fonts:\t\t\t $KODI_EXTRA_FONTS"
 
+  # Omegamoon >> Display kernel device tree used
+  config_message="$config_message\n"
+  config_message="$config_message\n\n Misc. options:"
+  config_message="$config_message\n $dashes$dashes"
+  config_message="$config_message\n - Device tree:\t\t\t\t $DEVICE_TREE"
+  # Omegamoon <<
+
   config_message="$config_message\n"
   config_message="$config_message\n $dashes$dashes$dashes"
   config_message="$config_message\n End Configuration for $DISTRONAME"

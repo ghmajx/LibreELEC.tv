@@ -20,6 +20,19 @@
 
 . config/options $1
 
+function validate_url(){
+  # echo -e "Omegamoon >> Validating URL $1..."; 
+
+  if [[ `wget -S --spider $1  2>&1 | grep 'HTTP/1.1 200 OK'` ]]; then echo "true"; fi
+}
+
+function is_local_file(){
+  # echo "Omegamoon >> Checking URL as local file..."; 
+  #if [[ `wget -S --spider $1  2>&1 | grep 'Scheme missing'` ]]; then echo "true"; fi
+
+  if [[ `wget -S --spider $1  2>&1 | grep 'Scheme missing'` ]]; then return 0; else return 1; fi
+}
+
 if [ -z "$1" ]; then
   for i in `find packages/ -type f -name package.mk`; do
     GET_PKG=`grep ^PKG_NAME= $i | sed -e "s,\",,g" -e "s,PKG_NAME=,,"`
@@ -59,13 +72,23 @@ if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
     printf "%${BUILD_INDENT}c ${boldcyan}GET${endcolor}      $1\n" ' '>&$SILENT_OUT
     export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
-    until [ -f "$STAMP" ] || $WGET_CMD $PKG_URL || $WGET_CMD $PACKAGE_MIRROR; do
-      NBWGET=$(($NBWGET+1))
-      if [ "$NBWGET" -gt "10" ]; then
-        echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
-        exit 1
-      fi
-    done
+## Omegamoon >> Check on protocol
+##   Source     : $PKG_URL
+##   Destination: $SOURCES/$1/$PKG_SOURCE_NAME
+    if `is_local_file $PKG_URL >/dev/null`; then 
+		echo -e "Omegamoon >> Package URL is local file... copy it to sources directory and handle as if downloaded..."; 
+		cp $PKG_URL $SOURCES/$1/$PKG_SOURCE_NAME
+    else
+		# Download file as usual using 'wget'
+		until [ -f "$STAMP" ] || $WGET_CMD $PKG_URL || $WGET_CMD $PACKAGE_MIRROR; do
+		  NBWGET=$(($NBWGET+1))
+		  if [ "$NBWGET" -gt "10" ]; then
+			echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
+			exit 1
+		  fi
+		done;
+    fi
+## Omegamoon <<
 
     echo $PKG_URL > $STAMP
     md5sum -t $PACKAGE > $MD5SUM

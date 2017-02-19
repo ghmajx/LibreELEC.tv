@@ -36,6 +36,9 @@ STAMP=$PKG_BUILD/.libreelec-unpack
 
 mkdir -p $BUILD
 
+#echo "Omegamoon >> unpack[1]: $SOURCES/$1"
+#echo "Omegamoon >> unpack[2]: $PKG_DIR/sources"
+
 [ ! -d "$SOURCES/$1" -a ! -d "$PKG_DIR/sources" ] && exit 0
 
 STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
@@ -79,7 +82,11 @@ fi
 if [ "$(type -t unpack)" = "function" ]; then
   unpack
 else
+  # echo "Omegamoon >> unpacking: $1.tar.gz ** build: $BUILD ** PKG_URL: $PKG_URL"
+
   if [ -n "$PKG_URL" ]; then
+    # echo "Omegamoon >> unpacking[2]: $1.tar.gz build: $BUILD"
+
     $SCRIPTS/extract $1 "$1*.tar.bz2" $BUILD
     $SCRIPTS/extract $1 "$1*.tbz"     $BUILD
     $SCRIPTS/extract $1 "$1*.tar.gz"  $BUILD
@@ -93,11 +100,15 @@ fi
 
 if [ ! -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
   if [ -n "$PKG_SOURCE_DIR" ]; then
+    # echo "Omegamoon [1a] >> mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION"
     mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION
   elif [ -d $BUILD/$PKG_NAME-$PKG_VERSION* ]; then
+    # echo "Omegamoon [1b] >> mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION"
     mv $BUILD/$PKG_NAME-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
   fi
 fi
+
+# echo "Omegamoon >> okay [1] => PKG_DIR=$PKG_DIR"
 
 if [ -d "$PKG_DIR/sources" ]; then
   [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}

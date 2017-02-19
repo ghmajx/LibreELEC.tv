@@ -17,6 +17,9 @@ noobs:
 amlpkg:
 	./scripts/image amlpkg
 
+rkimage:
+	./scripts/image rkimage
+
 clean:
 	rm -rf $(BUILD_DIRS)/* $(BUILD_DIRS)/.stamps
 
