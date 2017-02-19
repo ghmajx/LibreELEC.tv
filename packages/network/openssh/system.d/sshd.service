@@ -1,7 +1,11 @@
 [Unit]
 Description=OpenSSH server daemon
 ConditionKernelCommandLine=|ssh
+
+# Omegamoon >>
+#ConditionPathExists=|/usr/share/sshd.conf
 ConditionPathExists=|/storage/.cache/services/sshd.conf
+# Omegamoon <<
 
 [Service]
 Restart=on-failure
