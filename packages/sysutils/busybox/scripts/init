@@ -67,7 +67,8 @@
   [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
 
   # hide kernel log messages on console
-  echo '1 4 1 7' > /proc/sys/kernel/printk
+  # Omegamoon >> Disable line below for debugging purposes
+#  echo '1 4 1 7' > /proc/sys/kernel/printk
 
   # set ondemand up_threshold
   if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold ] ; then
@@ -186,7 +187,11 @@
 
     showcursor
 
-    sh </dev/tty1 >/dev/tty1 2>&1
+# Omegamoon >> Direct shell output to /dev/ttyFIQ0 for debugging purposes
+#   sh </dev/tty1 >/dev/tty1 2>&1
+   sh </dev/ttyFIQ0 >/dev/ttyFIQ0 2>&1
+#   sh </dev/ttyS0 >/dev/ttyS0 2>&1
+#   sh </dev/ttyS1 >/dev/ttyS1 2>&1
   }
 
   error() {
@@ -213,6 +218,7 @@
     MOUNT_OPTIONS="-o $3"
     [ -n "$4" ] && MOUNT_OPTIONS="-t $4 $MOUNT_OPTIONS"
 
+    # progress "Omegamoon >> Mount cmdline: mount $MOUNT_OPTIONS $1 $2"
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
       ERR_ENV=1
 
@@ -467,6 +473,17 @@
 
   load_modules() {
     progress "Loading kernel modules"
+
+# Omegamoon >>
+# Force loading of Rockchip NAND module... is ugly, and works on old 3.10 kernels only!
+#echo "Omegamoon >> Inserting Rockchip NAND module..."
+if [ -f /usr/lib/modules/rk30xxnand_ko.ko.3.10.0 ]; then
+  cd /usr/lib/modules
+  insmod rk30xxnand_ko.ko.3.10.0
+  cd /
+fi
+#echo "Omegamoon <<"
+# Omegamoon <<
 
     [ ! -f "/etc/modules" ] && return
     for module in $(cat /etc/modules); do
