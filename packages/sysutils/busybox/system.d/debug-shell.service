@@ -13,7 +13,13 @@ ExecStart=/bin/sh -c '. /etc/profile; exec /bin/sh'
 Restart=always
 RestartSec=0
 StandardInput=tty
-TTYPath=/dev/tty3
+
+# Omegamoon >> Bind default debug shell to ttyFIQ0
+#TTYPath=/dev/tty3
+TTYPath=/dev/ttyFIQ0
+#TTYPath=/dev/ttyS1
+# Omegamoon <<
+
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process
