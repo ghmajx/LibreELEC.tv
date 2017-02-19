@@ -28,6 +28,44 @@ PKG_SECTION="linux"
 PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and modules"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
+  rockchip-4.4)
+    PKG_VERSION="release-4.4"
+    PKG_URL="https://github.com/omegamoon/kernel/archive/$PKG_VERSION.tar.gz"
+
+    if [ -z "$DEVICE_TREE" ]; then
+      DEVICE_TREE=rk3288-popmetal
+    fi
+    
+    # Omegamoon >> Added kernel environment variables
+    KERNEL_MAKE_BUILD_USER="master"
+    KERNEL_MAKE_BUILD_HOST="www.omegamoon.com"
+    THREADS="8"
+
+    KERNEL_TARGET=$DEVICE_TREE.img
+    # gcc version 4.6.x-google 20120106 (prerelease) -> Works for 3.10+ kernels
+    TARGET_PREFIX=$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
+    
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rockchip-tools"
+    ;;
+  rockchip-3.10)
+    PKG_VERSION="omegamoon"
+    PKG_URL="$PROJECT_DIR/$PROJECT/sources/$PKG_NAME-$PKG_VERSION.tar.gz"
+    
+    if [ -z "$DEVICE_TREE" ]; then
+      DEVICE_TREE=rk3128-box-rk88
+    fi
+    
+    # Omegamoon >> Added kernel environment variables
+    KERNEL_MAKE_BUILD_USER="master"
+    KERNEL_MAKE_BUILD_HOST="www.omegamoon.com"
+    THREADS="8"
+
+    KERNEL_TARGET=$DEVICE_TREE.img
+    # gcc version 4.6.x-google 20120106 (prerelease) -> Works for 3.10+ kernels
+    TARGET_PREFIX=$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
+
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rockchip-tools"
+    ;;
   amlogic-3.10)
     PKG_VERSION="1261cae"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
@@ -160,6 +198,7 @@ pre_make_target() {
     sed -i "s|CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" $ROOT/$PKG_BUILD/.config
   fi
 
+  echo ">> Omegamoon - calling 'make oldconfig'"
   make oldconfig
 
   # regdb
@@ -167,6 +206,7 @@ pre_make_target() {
 
   if [ "$BOOTLOADER" = "u-boot" ]; then
     ( cd $ROOT
+      echo ">> Omegamoon - Making u-boot..."
       $SCRIPTS/build u-boot
     )
   fi
@@ -185,16 +225,34 @@ make_target() {
 
   if [ "$BOOTLOADER" = "u-boot" -a -n "$KERNEL_UBOOT_EXTRA_TARGET" ]; then
     for extra_target in "$KERNEL_UBOOT_EXTRA_TARGET"; do
-      LDFLAGS="" make $extra_target
+      echo "Omegamoon >> Building kernel using cmdline: KBUILD_BUILD_USER=$KERNEL_MAKE_BUILD_USER KBUILD_BUILD_HOST=$KERNEL_MAKE_BUILD_HOST make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD"
+      LDFLAGS="" KBUILD_BUILD_USER=$KERNEL_MAKE_BUILD_USER KBUILD_BUILD_HOST=$KERNEL_MAKE_BUILD_HOST make $extra_target
     done
   fi
 
-  LDFLAGS="" make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD
+  echo "Omegamoon >> Building kernel using cmdline: KBUILD_BUILD_USER=$KERNEL_MAKE_BUILD_USER KBUILD_BUILD_HOST=$KERNEL_MAKE_BUILD_HOST make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD"
+  LDFLAGS="" KBUILD_BUILD_USER=$KERNEL_MAKE_BUILD_USER KBUILD_BUILD_HOST=$KERNEL_MAKE_BUILD_HOST make $KERNEL_TARGET $KERNEL_MAKE_EXTRACMD
 
   if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
-    LDFLAGS="" mkbootimg --kernel arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
-      $ANDROID_BOOTIMG_OPTIONS --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
-    mv -f arch/$TARGET_KERNEL_ARCH/boot/boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
+    # Omegamoon >> Build Rockchip specific kernel.img and resource.img files
+    if [ "$LINUX" = "rockchip-3.10" ] || [ "$LINUX" = "rockchip-4.4" ]; then
+      echo "Omegamoon >> Creating Rockchip kernel.img file..."
+      $BUILD/rockchip-tools/firmware/mkkrnlimg arch/$TARGET_KERNEL_ARCH/boot/zImage ./kernel.img >/dev/null
+      echo "Omegamoon >> Creating Rockchip resource.img file using device tree $DEVICE_TREE..."
+      $BUILD/rockchip-tools/firmware/resource_tool arch/$TARGET_KERNEL_ARCH/boot/dts/$DEVICE_TREE.dtb logo.bmp logo_kernel.bmp >/dev/null
+    
+      LDFLAGS="" mkbootimg \
+        --kernel ./kernel.img \
+        --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
+        --second ./resource.img \
+        --output ./boot.img
+       cp -f ./boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
+    else
+    # Omegamoon <<
+      LDFLAGS="" mkbootimg --kernel arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
+        $ANDROID_BOOTIMG_OPTIONS --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
+      mv -f arch/$TARGET_KERNEL_ARCH/boot/boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
+    fi
   fi
 }
 
@@ -225,6 +283,22 @@ makeinstall_init() {
   if [ -n "$INITRAMFS_MODULES" ]; then
     mkdir -p $INSTALL/etc
     mkdir -p $INSTALL/usr/lib/modules
+
+    # Omegamoon >> Dirty workaround to get proprietry NAND drivers in place
+    #echo "Omegamoon >> Checking for additional modules in project, for use in initramfs..."
+    if [ -d $PROJECT_DIR/$PROJECT/initramfs/modules ]; then
+      #echo "Omegamoon >> Copying additional modules into initramfs..."
+      cp $PROJECT_DIR/$PROJECT/initramfs/modules/* $INSTALL/usr/lib/modules
+      # Remove the modules.conf from the initramfs modules location...
+      rm $INSTALL/usr/lib/modules/modules.conf
+      # Add the contents of modules.conf to initramfs /etc/modules file
+      cat $PROJECT_DIR/$PROJECT/initramfs/modules/modules.conf >> $INSTALL/etc/modules
+      
+      # Dirty hack to get the rockchip proprietry kernel modules loaded
+      #echo "/system/lib/modules/mali.ko" >> $INSTALL/etc/modules
+      #echo "/system/lib/modules/rk29-ipp.ko" >> $INSTALL/etc/modules
+    fi
+    # Omegamoon <<
 
     for i in $INITRAMFS_MODULES; do
       module=`find .install_pkg/usr/lib/modules/$(get_module_dir)/kernel -name $i.ko`
