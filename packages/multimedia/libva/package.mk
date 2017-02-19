@@ -18,7 +18,11 @@
 
 PKG_NAME="libva"
 PKG_VERSION="1.7.3"
-PKG_ARCH="x86_64"
+
+# Omegamoon >> Changed libva architecture from 'x86_64' to 'any'
+PKG_ARCH="any"
+# Omegamoon <<
+
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
 PKG_URL="http://www.freedesktop.org/software/vaapi/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
