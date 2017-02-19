@@ -49,6 +49,11 @@ for drv in $GRAPHIC_DRIVERS; do
   [ "$drv" = "vmware" ] && \
     DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
     DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-vmwgfx/enable-vmwgfx/'`
+
+  # Omegamoon >> Add support for Rockchip
+  [ "$drv" = "armsoc" ] && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'`
+  # Omegamoon <<
 done
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
