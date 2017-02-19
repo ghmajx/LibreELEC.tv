@@ -38,8 +38,15 @@ PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dbus"
 if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm libXrandr"
   KODI_XORG="-DENABLE_X11=ON"
+
+  # Omegamoon >> Enable XRANDR to get rid of linking errors in final kodi.bin like these:
+  #     WinEventsX11.cpp:(.text+0xa70): undefined reference to `XRRUpdateConfiguration'
+  # Unfortunately this option didn't work; In the end changing the FindX.cmake resolved the issue
+  KODI_XRANDR="-DENABLE_XRANDR=ON"
 else
-  KODI_XORG="-DENABLE_X11=OFF"
+   KODI_XORG="-DENABLE_X11=OFF"
+  # Omegamoon >> Disable XRANDR when not using X11
+  KODI_XRANDR="-DENABLE_XRANDR=OFF"
 fi
 
 if [ ! "$OPENGL" = "no" ]; then
@@ -203,6 +210,13 @@ KODI_LIBDVD="$KODI_DVDCSS \
              -DLIBDVDNAV_URL=$ROOT/$SOURCES/libdvdnav/libdvdnav-$(get_pkg_version libdvdnav).tar.gz \
              -DLIBDVDREAD_URL=$ROOT/$SOURCES/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.gz"
 
+# Omegamoon >> Added -fpermissive as compiler flag to fix build errors
+#   xbmc/windowing/X11/GLContextEGL.cpp:63:86: error: invalid conversion from 'Window {aka long unsigned int}' to 'EGLNativeWindowType {aka fbdev_window*}'
+CFLAGS="$CFLAGS -fpermissive"
+CXXFLAGS="$CXXFLAGS -fpermissive"
+# Omegamoon <<
+
+# Omegamoon >> Added KODI_XRANDR as option
 PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$ROOT/$TOOLCHAIN \
                        -DWITH_TEXTUREPACKER=$ROOT/$TOOLCHAIN/bin/TexturePacker \
                        -DDEPENDS_PATH=$ROOT/$PKG_BUILD/depends \
@@ -241,6 +255,7 @@ PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$ROOT/$TOOLCHAIN \
                        $KODI_NONFREE \
                        $KODI_OPTICAL \
                        $KODI_BLURAY \
+                       $KODI_XRANDR \
                        $KODI_PLAYER"
 
 pre_configure_target() {
