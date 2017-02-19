@@ -94,6 +94,9 @@ logger -t Xorg "### creating needed directories and symlinks ###"
     ln -sf /usr/bin/nvidia-legacy-xconfig /var/lib/nvidia-xconfig
     insmod /var/lib/nvidia.ko
     XORG_ARGS="$XORG_ARGS -ignoreABI"
+  elif [ "$1" = "mali" ]; then
+    # Omegamoon >> Create /run/libreelec/xorg-settings.conf; without it xorg won't start
+    touch /run/libreelec/xorg-settings.conf
   else
     ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
     ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so

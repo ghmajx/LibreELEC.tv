@@ -28,6 +28,7 @@ PKG_SHORTDESC="xorg-server: The Xorg X server"
 PKG_LONGDESC="Xorg is a full featured X server that was originally designed for UNIX and UNIX-like operating systems running on Intel x86 hardware."
 
 PKG_IS_ADDON="no"
+# Omegamoon >> Beware: When using the rockchip xorg-server v1.18.0, you need PKG_AUTORECONF="yes" (default LE=no)
 PKG_AUTORECONF="no"
 
 get_graphicdrivers
@@ -45,6 +46,27 @@ if [ ! "$OPENGL" = "no" ]; then
 else
   XORG_MESA="--disable-glx --disable-dri --disable-glamor"
 fi
+
+# Omegamoon >> Configuration notes for rk3288 support...
+#   COMPOSITE_SUPPORT="yes"; OPENGL="no"
+#   Dependencies: DRI2, 
+# PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXfont2"
+VENDOR="LibreELEC.tv"
+# VENDOR="Rockchip"
+
+#not_set  --disable-static \
+#not_set	 --without-dtrace \
+#not_set  --with-builderstring="$(SOURCE_NAME) $(SOURCE_VERSION) ($(SUPPORT))" \
+#not_set  --with-shared-memory-dir=/dev/shm \
+#not_set  --enable-xres \
+#not_set  --enable-registry \
+#not_set  --enable-xvmc \
+#not_set  --enable-screensaver \
+#not_set  --enable-xdmcp \
+#not_set  --enable-xdm-auth-1 \
+#not_set  --enable-xace \
+#beware   --enable-xselinux
+# Omegamoon <<
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-silent-rules \
@@ -122,7 +144,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --with-gnu-ld \
                            --with-sha1=libcrypto \
                            --without-systemd-daemon \
-                           --with-os-vendor=LibreELEC.tv \
+                           --with-os-vendor=$VENDOR \
                            --with-module-dir=$XORG_PATH_MODULES \
                            --with-xkb-path=$XORG_PATH_XKB \
                            --with-xkb-output=/var/cache/xkb \

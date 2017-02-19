@@ -28,6 +28,8 @@ DRIVER=="i915", ENV{xorg_driver}="i915", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xo
 DRIVER=="amdgpu", ENV{xorg_driver}="amdgpu", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@amdgpu.service"
 DRIVER=="radeon", ENV{xorg_driver}="radeon", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@radeon.service"
 DRIVER=="vmwgfx", ENV{xorg_driver}="vmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@vmware.service"
+# Omegamoon >> Add rule for mali driver
+KERNEL=="mali", ENV{xorg_driver}="armsoc", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@mali.service"
 GOTO="end_video"
 
 LABEL="end_video"
