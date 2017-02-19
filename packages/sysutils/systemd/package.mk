@@ -183,6 +183,9 @@ post_makeinstall_target() {
   sed -e "s,^.*RuntimeMaxUse=.*$,RuntimeMaxUse=2M,g" -i $INSTALL/etc/systemd/journald.conf
   sed -e "s,^.*RuntimeMaxFileSize=.*$,RuntimeMaxFileSize=128K,g" -i $INSTALL/etc/systemd/journald.conf
   sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=10M,g" -i $INSTALL/etc/systemd/journald.conf
+  # Omegamoon >> Stop forwarding systemd messages to (serial) console
+  #sed -e "s,^.*ForwardToWall=.*$,ForwardToWall=no,g" -i $INSTALL/etc/systemd/journald.conf
+  # Omegamoon <<
 
   # tune logind.conf
   sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i $INSTALL/etc/systemd/logind.conf

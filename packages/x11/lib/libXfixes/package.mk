@@ -30,7 +30,13 @@ PKG_LONGDESC="X Fixes Library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+# Omegamoon >> Changed static libXfixes into shared library; Needed for Mali-400MP user space binaries
+#   Made it static again after kodi.bin couldn't be linked due errors like below:
+#     WinEventsX11.cpp:(.text+0xa70): undefined reference to `XRRUpdateConfiguration'
+#     result: non-related; if needed, this package can be build as shared library
+#PKG_CONFIGURE_OPTS_TARGET="--disable-static --enable-shared"
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+# Omegamoon <<
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"

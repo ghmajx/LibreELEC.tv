@@ -30,7 +30,13 @@ PKG_LONGDESC="X C-language Bindings library."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+# Omegamoon >> Enable build of shared libraries
+#   This library is dynamically loaded by Mali (midgard) drivers
+#   Made it static again after kodi.bin couldn't be linked due errors like below:
+#     WinEventsX11.cpp:(.text+0xa70): undefined reference to `XRRUpdateConfiguration'
+#     result: non-related; if needed, this package can be build as shared library
+#PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+PKG_CONFIGURE_OPTS_TARGET="--enable-shared --disable-static \
                            --disable-screensaver \
                            --disable-xprint \
                            --disable-selinux \
