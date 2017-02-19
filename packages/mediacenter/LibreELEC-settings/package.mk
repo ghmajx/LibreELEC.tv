@@ -21,7 +21,12 @@ PKG_VERSION="042c6c2"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="https://libreelec.tv"
-PKG_URL="https://github.com/LibreELEC/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
+
+# Omegamoon >> Use LibreELEC-settings containing MoonRock textures
+#PKG_URL="https://github.com/LibreELEC/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/omegamoon/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
+# Omegamoon <<
+
 PKG_SOURCE_DIR="service.libreelec.settings-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain Python connman pygobject dbus-python"
 PKG_SECTION=""
