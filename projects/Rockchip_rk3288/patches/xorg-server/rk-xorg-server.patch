@@ -1,0 +1,902 @@
+diff -Naur a/dix/dispatch.c b/dix/dispatch.c
+--- a/dix/dispatch.c	2016-11-15 17:05:15.000000000 +0100
++++ b/dix/dispatch.c	2017-02-05 14:45:40.000000000 +0100
+@@ -129,6 +129,9 @@
+ #include "xkbsrv.h"
+ #include "site.h"
+ #include "client.h"
++// Omegamoon >>
++#include "damage.h"
++// Omegamoon <<
+ 
+ #ifdef XSERVER_DTRACE
+ #include "registry.h"
+@@ -239,6 +242,9 @@
+ #endif
+ 
+ void Dispatch(void);
++// Omegamoon >>
++int ProcFlush(void);
++// Omegamoon <<
+ 
+ static struct xorg_list ready_clients;
+ static struct xorg_list saved_ready_clients;
+@@ -409,7 +415,9 @@
+             FlushIfCriticalOutputPending();
+         }
+ 
+-        if (!WaitForSomething(clients_are_ready()))
++// Omegamoon >>
++        if (!WaitForSomething(clients_are_ready(), ProcFlush))
++// Omegamoon <<
+             continue;
+ 
+        /*****************
+@@ -3385,6 +3393,15 @@
+     return Success;
+ }
+ 
++// Omegamoon >>
++int
++ProcFlush(void)
++{
++    damageFlush();
++    return Success;
++}
++// Omegamoon <<
++
+ /**********************
+  * CloseDownClient
+  *
+diff -Naur a/glamor/glamor.c b/glamor/glamor.c
+--- a/glamor/glamor.c	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor.c	2017-02-05 00:54:32.000000000 +0100
+@@ -189,6 +189,12 @@
+     if (w > 32767 || h > 32767)
+         return NullPixmap;
+ 
++// Omegamoon >>
++    if (depth == 8 && usage != GLAMOR_CREATE_FBO_NO_FBO ||
++	(w == h && w == 24 && depth == 32)) {
++        return fbCreatePixmap(screen, w, h, depth, usage);
++    }
++// Omegamoon <<
+     if ((usage == GLAMOR_CREATE_PIXMAP_CPU
+          || (usage == CREATE_PIXMAP_USAGE_GLYPH_PICTURE &&
+              w <= glamor_priv->glyph_max_dim &&
+@@ -602,7 +608,9 @@
+     if (glamor_priv->gl_flavor == GLAMOR_GL_DESKTOP)
+         glamor_priv->has_rw_pbo = TRUE;
+ 
+-    glamor_priv->has_khr_debug = epoxy_has_gl_extension("GL_KHR_debug");
++// Omegamoon >>
++    glamor_priv->has_khr_debug = 0;//epoxy_has_gl_extension("GL_KHR_debug");
++// Omegamoon <<
+     glamor_priv->has_pack_invert =
+         epoxy_has_gl_extension("GL_MESA_pack_invert");
+     glamor_priv->has_fbo_blit =
+@@ -874,6 +882,7 @@
+     return -1;
+ }
+ 
++// Omegamoon >>
+ void
+ glamor_finish(ScreenPtr screen)
+ {
+@@ -882,3 +891,25 @@
+     glamor_make_current(glamor_priv);
+     glFinish();
+ }
++
++static int draw_cnt = 0;
++
++void glamor_flush(GCPtr pGC)
++{
++    if(draw_cnt > 0) {
++        GLint fbo = 0;
++        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
++        if(0 != fbo) {
++            glBindFramebuffer(GL_FRAMEBUFFER, 0);
++            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
++        }
++
++        draw_cnt = 0;
++    }
++}
++
++void glamor_draw_add()
++{
++    draw_cnt ++;
++}
++// Omegamoon <<
+\ No newline at end of file
+diff -Naur a/glamor/glamor_composite_glyphs.c b/glamor/glamor_composite_glyphs.c
+--- a/glamor/glamor_composite_glyphs.c	2016-08-31 01:41:47.000000000 +0200
++++ b/glamor/glamor_composite_glyphs.c	2017-02-05 00:54:46.000000000 +0100
+@@ -284,6 +284,17 @@
+             break;
+         prog++;
+     }
++// Omegamoon >>
++    glamor_draw_add();
++    {   // workround the lack of glyphs for firefox.
++        GLint fbo = 0;
++        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
++        if(0 != fbo) {
++            glBindFramebuffer(GL_FRAMEBUFFER, 0);
++            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
++        }
++    }
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+ 
+diff -Naur a/glamor/glamor_copy.c b/glamor/glamor_copy.c
+--- a/glamor/glamor_copy.c	2016-10-05 20:05:44.000000000 +0200
++++ b/glamor/glamor_copy.c	2017-02-05 00:54:59.000000000 +0100
+@@ -422,6 +422,9 @@
+             glamor_glDrawArrays_GL_QUADS(glamor_priv, nbox);
+         }
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+     glDisable(GL_SCISSOR_TEST);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+ 
+diff -Naur a/glamor/glamor_core.c b/glamor/glamor_core.c
+--- a/glamor/glamor_core.c	2016-08-11 21:08:48.000000000 +0200
++++ b/glamor/glamor_core.c	2017-02-05 00:55:11.000000000 +0100
+@@ -135,6 +135,9 @@
+     .ImageGlyphBlt = miImageGlyphBlt,
+     .PolyGlyphBlt = glamor_poly_glyph_blt,
+     .PushPixels = glamor_push_pixels,
++// Omegamoon >>
++    .Flush = glamor_flush,
++// Omegamoon <<
+ };
+ 
+ /*
+diff -Naur a/glamor/glamor_dash.c b/glamor/glamor_dash.c
+--- a/glamor/glamor_dash.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_dash.c	2017-02-05 00:55:18.000000000 +0100
+@@ -225,6 +225,9 @@
+             glDrawArrays(mode, 0, n);
+         }
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+diff -Naur a/glamor/glamor_egl.c b/glamor/glamor_egl.c
+--- a/glamor/glamor_egl.c	2016-10-15 22:39:02.000000000 +0200
++++ b/glamor/glamor_egl.c	2017-02-05 01:00:00.000000000 +0100
+@@ -29,6 +29,9 @@
+ 
+ #include "dix-config.h"
+ 
++// Omegamoon >>
++#define GLAMOR_GLES2
++// Omegamoon <<
+ #define GLAMOR_FOR_XORG
+ #include <unistd.h>
+ #include <fcntl.h>
+@@ -297,23 +300,37 @@
+     ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
+     struct glamor_screen_private *glamor_priv =
+         glamor_get_screen_private(screen);
++// Omegamoon >>
++    struct glamor_pixmap_private *pixmap_priv =
++        glamor_get_pixmap_private(pixmap);
++// Omegamoon <<
+     struct glamor_egl_screen_private *glamor_egl;
+     EGLImageKHR image;
+     GLuint texture;
+     Bool ret = FALSE;
+ 
++// Omegamoon >>
++    if (pixmap_priv->bo)
++	gbm_bo_unref(pixmap_priv->bo);
++// Omegamoon <<
+     glamor_egl = glamor_egl_get_screen_private(scrn);
+ 
+     glamor_make_current(glamor_priv);
+ 
+     image = eglCreateImageKHR(glamor_egl->display,
+-                              glamor_egl->context,
++// Omegamoon >>
++                              /* glamor_egl->context*/ EGL_NO_CONTEXT,
++// Omegamoon <<
+                               EGL_NATIVE_PIXMAP_KHR, bo, NULL);
+     if (image == EGL_NO_IMAGE_KHR) {
+         glamor_set_pixmap_type(pixmap, GLAMOR_DRM_ONLY);
+         goto done;
+     }
+     glamor_create_texture_from_image(screen, image, &texture);
++// Omegamoon >>
++    pixmap_priv->bo = bo;
++    gbm_bo_ref(bo);
++// Omegamoon <<
+     glamor_set_pixmap_type(pixmap, GLAMOR_TEXTURE_DRM);
+     glamor_set_pixmap_texture(pixmap, texture);
+     glamor_egl_set_pixmap_image(pixmap, image);
+@@ -386,6 +403,9 @@
+         gbm_bo_destroy(bo);
+         return FALSE;
+     }
++// Omegamoon >>
++    pixmap->devKind = gbm_bo_get_stride(bo);
++// Omegamoon <<
+     gbm_bo_destroy(bo);
+ 
+     scratch_gc = GetScratchGC(pixmap->drawable.depth, screen);
+@@ -418,9 +438,17 @@
+ 
+     if (!glamor_make_pixmap_exportable(pixmap))
+         return NULL;
++// Omegamoon >>
++    gbm_bo_ref(pixmap_priv->bo);
++    return pixmap_priv->bo;
+ 
++#if 0
++// Omegamoon <<
+     return gbm_bo_import(glamor_egl->gbm, GBM_BO_IMPORT_EGL_IMAGE,
+                          pixmap_priv->image, 0);
++// Omegamoon >>
++#endif
++// Omegamoon <<
+ }
+ 
+ int
+@@ -535,12 +563,13 @@
+         glamor_egl_get_screen_private(scrn);
+     Bool ret;
+ 
+-    if (pixmap->refcnt == 1) {
+-        struct glamor_pixmap_private *pixmap_priv =
+-            glamor_get_pixmap_private(pixmap);
++        eglDestroyImageKHR(glamor_egl->display, pixmap_priv->image);
++        pixmap_priv->image = NULL;
+ 
+-        if (pixmap_priv->image)
+-            eglDestroyImageKHR(glamor_egl->display, pixmap_priv->image);
++// Omegamoon >>
++	if (pixmap_priv->bo)
++		gbm_bo_destroy(pixmap_priv->bo);
++// Omegamoon <<
+     }
+ 
+     screen->DestroyPixmap = glamor_egl->saved_destroy_pixmap;
+@@ -559,13 +588,20 @@
+         glamor_get_pixmap_private(front);
+     struct glamor_pixmap_private *back_priv =
+         glamor_get_pixmap_private(back);
++// Omegamoon >>
++    struct gbm_bo *temp_bo;
++// Omegamoon <<
+ 
+     glamor_pixmap_exchange_fbos(front, back);
+ 
+     temp = back_priv->image;
+     back_priv->image = front_priv->image;
+     front_priv->image = temp;
+-
++// Omegamoon >>
++    temp_bo = back_priv->bo;
++    back_priv->bo = front_priv->bo;
++    front_priv->bo = temp_bo;
++// Omegamoon <<
+     glamor_set_pixmap_type(front, GLAMOR_TEXTURE_DRM);
+     glamor_set_pixmap_type(back, GLAMOR_TEXTURE_DRM);
+ }
+@@ -751,6 +787,23 @@
+         EGL_NONE
+     };
+ 
++// Omegamoon >>
++    const EGLint config_attribs_gles2[] = {
++        EGL_RED_SIZE, 8,
++        EGL_GREEN_SIZE, 8,
++        EGL_BLUE_SIZE, 8,
++        EGL_ALPHA_SIZE, 8,
++        EGL_DEPTH_SIZE, 24,
++        EGL_STENCIL_SIZE, 8,
++        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
++	    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
++	    EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
++        EGL_NONE
++    };
++    EGLint num_configs;
++    EGLConfig egl_config;
++// Omegamoon <<
++
+     glamor_identify(0);
+     glamor_egl = calloc(sizeof(*glamor_egl), 1);
+     if (glamor_egl == NULL)
+@@ -766,10 +819,15 @@
+         ErrorF("couldn't get display device\n");
+         goto error;
+     }
+-
++// Omegamoon >>
++#if 0
+     glamor_egl->display = glamor_egl_get_display(EGL_PLATFORM_GBM_MESA,
+                                                  glamor_egl->gbm);
+ #else
++    glamor_egl->display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, glamor_egl->gbm, NULL);
++#endif
++// Omegamoon <<
++#else
+     glamor_egl->display = eglGetDisplay((EGLNativeDisplayType) (intptr_t) fd);
+ #endif
+ 
+@@ -794,7 +852,9 @@
+ #define GLAMOR_CHECK_EGL_EXTENSION(EXT)  \
+ 	if (!epoxy_has_egl_extension(glamor_egl->display, "EGL_" #EXT)) {  \
+ 		ErrorF("EGL_" #EXT " required.\n");  \
+-		goto error;  \
++// Omegamoon >>
++/*		goto error; */ \
++// Omegamoon <<
+ 	}
+ 
+ #define GLAMOR_CHECK_EGL_EXTENSIONS(EXT1, EXT2)	 \
+@@ -807,7 +867,11 @@
+     GLAMOR_CHECK_EGL_EXTENSION(MESA_drm_image);
+     GLAMOR_CHECK_EGL_EXTENSION(KHR_gl_renderbuffer_image);
+ #ifdef GLAMOR_GLES2
+-    GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context, KHR_surfaceless_gles2);
++// Omegamoon >>
++ GLAMOR_CHECK_EGL_EXTENSION(KHR_surfaceless_context);
++    GLAMOR_CHECK_EGL_EXTENSION(KHR_surfaceless_gles2);
++//    GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context, KHR_surfaceless_gles2);
++// Omegamoon <<
+ #else
+     GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context,
+                                 KHR_surfaceless_opengl);
+@@ -820,20 +884,30 @@
+ #else
+     glamor_egl->context = NULL;
+ #endif
+-    if (!glamor_egl->context) {
+-        glamor_egl->context = eglCreateContext(glamor_egl->display,
+-                                               NULL, EGL_NO_CONTEXT,
+-                                               config_attribs);
+-        if (glamor_egl->context == EGL_NO_CONTEXT) {
+-            xf86DrvMsg(scrn->scrnIndex, X_ERROR, "Failed to create EGL context\n");
+-            goto error;
+-        }
++// Omegamoon >>
++    if (!eglChooseConfig(glamor_egl->display, config_attribs_gles2, 0, 0, &num_configs)) {
++        ErrorF("eglChooseConfig Fail to get Confings\n");
++        return false;
+     }
+ 
++    if (!eglChooseConfig(glamor_egl->display, config_attribs_gles2, &egl_config, 1, &num_configs)) {
++        ErrorF("Fail to get Config, num_configs=%d\n",num_configs);
++        return false;
++    }
++    glamor_egl->context = eglCreateContext(glamor_egl->display,
++                                           egl_config, EGL_NO_CONTEXT,
++                                           config_attribs);
++    if (glamor_egl->context == EGL_NO_CONTEXT) {
++        xf86DrvMsg(scrn->scrnIndex, X_ERROR, "Failed to create EGL context\n");
++        goto error;
++    }
++// Omegamoon <<
+     if (!eglMakeCurrent(glamor_egl->display,
+                         EGL_NO_SURFACE, EGL_NO_SURFACE, glamor_egl->context)) {
+         xf86DrvMsg(scrn->scrnIndex, X_ERROR,
+-                   "Failed to make EGL context current\n");
++// Omegamoon >>
++                   "Failed to make EGL context currentgl%x egl%x\n", glGetError(), eglGetError());
++// Omegamoon <<
+         goto error;
+     }
+     /*
+diff -Naur a/glamor/glamor_fbo.c b/glamor/glamor_fbo.c
+--- a/glamor/glamor_fbo.c	2016-08-11 21:08:48.000000000 +0200
++++ b/glamor/glamor_fbo.c	2017-02-05 01:00:22.000000000 +0100
+@@ -132,6 +132,10 @@
+     if (format == glamor_priv->one_channel_format && format == GL_RED)
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+     glamor_priv->suppress_gl_out_of_memory_logging = true;
++// Omegamoon >>
++    if (format == GL_RGBA)
++	    format = GL_BGRA;
++// Omegamoon <<
+     glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0,
+                  format, GL_UNSIGNED_BYTE, NULL);
+     glamor_priv->suppress_gl_out_of_memory_logging = false;
+diff -Naur a/glamor/glamor_glyphblt.c b/glamor/glamor_glyphblt.c
+--- a/glamor/glamor_glyphblt.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_glyphblt.c	2017-02-05 01:00:38.000000000 +0100
+@@ -137,6 +137,9 @@
+             glDrawArrays(GL_POINTS, 0, num_points);
+         }
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+ 
+@@ -226,6 +229,9 @@
+ 
+         glDrawArrays(GL_POINTS, 0, num_points);
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+     return TRUE;
+diff -Naur a/glamor/glamor_gradient.c b/glamor/glamor_gradient.c
+--- a/glamor/glamor_gradient.c	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor_gradient.c	2017-02-05 01:00:49.000000000 +0100
+@@ -1080,6 +1080,9 @@
+ 
+     /* Now rendering. */
+     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     /* Do the clear logic. */
+     if (stops_count > RADIAL_SMALL_STOPS) {
+@@ -1423,7 +1426,9 @@
+ 
+     /* Now rendering. */
+     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+-
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+     /* Do the clear logic. */
+     if (stops_count > LINEAR_SMALL_STOPS) {
+         free(n_stops);
+diff -Naur a/glamor/glamor_lines.c b/glamor/glamor_lines.c
+--- a/glamor/glamor_lines.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_lines.c	2017-02-05 01:01:02.000000000 +0100
+@@ -115,6 +115,9 @@
+             glDrawArrays(GL_LINE_STRIP, 0, n + add_last);
+         }
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+diff -Naur a/glamor/glamor_points.c b/glamor/glamor_points.c
+--- a/glamor/glamor_points.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_points.c	2017-02-05 01:02:47.000000000 +0100
+@@ -102,6 +102,9 @@
+             glDrawArrays(GL_POINTS, 0, npt);
+         }
+     }
++// Omegamoon >>	
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+diff -Naur a/glamor/glamor_priv.h b/glamor/glamor_priv.h
+--- a/glamor/glamor_priv.h	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor_priv.h	2017-02-05 01:03:06.000000000 +0100
+@@ -43,6 +43,13 @@
+ #include <epoxy/egl.h>
+ #endif
+ 
++// Omegamoon >>
++#ifdef GLAMOR_HAS_GBM
++#include <gbm.h>
++#include <drm_fourcc.h>
++#endif
++// Omegamoon <<
++
+ #define GLAMOR_DEFAULT_PRECISION  \
+     "#ifdef GL_ES\n"              \
+     "precision mediump float;\n"  \
+@@ -380,6 +387,9 @@
+      * names.
+      */
+     glamor_pixmap_fbo **fbo_array;
++// Omegamoon >>
++    struct gbm_bo *bo;
++// Omegamoon <<
+ } glamor_pixmap_private;
+ 
+ extern DevPrivateKeyRec glamor_pixmap_private_key;
+@@ -818,6 +828,9 @@
+ 
+ void glamor_push_pixels(GCPtr pGC, PixmapPtr pBitmap,
+                         DrawablePtr pDrawable, int w, int h, int x, int y);
++// Omegamoon >>
++void glamor_flush(GCPtr pGC);
++// Omegamoon <<
+ 
+ void glamor_poly_point(DrawablePtr pDrawable, GCPtr pGC, int mode, int npt,
+                        DDXPointPtr ppt);
+@@ -858,7 +871,9 @@
+ void
+ glamor_solid_boxes(PixmapPtr pixmap,
+                    BoxPtr box, int nbox, unsigned long fg_pixel);
+-
++// Omegamoon >>
++void glamor_draw_add();
++// Omegamoon <<
+ 
+ /* glamor_xv */
+ typedef struct {
+diff -Naur a/glamor/glamor_rects.c b/glamor/glamor_rects.c
+--- a/glamor/glamor_rects.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_rects.c	2017-02-05 01:03:15.000000000 +0100
+@@ -131,6 +131,9 @@
+             }
+         }
+     }
++// Omegamoon >>	
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     if (glamor_priv->glsl_version >= 130)
+diff -Naur a/glamor/glamor_render.c b/glamor/glamor_render.c
+--- a/glamor/glamor_render.c	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor_render.c	2017-02-05 01:06:20.000000000 +0100
+@@ -104,33 +104,23 @@
+         "}\n";
+     /* The texture and the pixmap size is not match eaxctly, so can't sample it directly.
+      * rel_sampler will recalculate the texture coords.*/
++// Omegamoon >>	 
+     const char *rel_sampler =
+-        " vec4 rel_sampler_rgba(sampler2D tex_image, vec2 tex, vec4 wh, int repeat)\n"
++        " vec4 rel_sampler(sampler2D tex_image, vec2 tex, vec4 wh, int repeat, int set_alpha)\n"
+         "{\n"
+-        "	if (repeat >= RepeatFix) {\n"
+-        "		tex = rel_tex_coord(tex, wh, repeat);\n"
+-        "		if (repeat == RepeatFix + RepeatNone) {\n"
+-        "			if (tex.x < 0.0 || tex.x >= 1.0 || \n"
+-        "			    tex.y < 0.0 || tex.y >= 1.0)\n"
+-        "				return vec4(0.0, 0.0, 0.0, 0.0);\n"
+-        "			tex = (fract(tex) / wh.xy);\n"
+-        "		}\n"
++        "	tex = rel_tex_coord(tex, wh, repeat);\n"
++        "	if (repeat == RepeatFix + RepeatNone) {\n"
++        "		if (!(tex.x >= 0.0 && tex.x < 1.0 \n"
++        "		    && tex.y >= 0.0 && tex.y < 1.0))\n"
++        "			return vec4(0.0, 0.0, 0.0, set_alpha);\n"
++        "		tex = (fract(tex) / wh.xy);\n"
+         "	}\n"
+-        "	return texture2D(tex_image, tex);\n"
+-        "}\n"
+-        " vec4 rel_sampler_rgbx(sampler2D tex_image, vec2 tex, vec4 wh, int repeat)\n"
+-        "{\n"
+-        "	if (repeat >= RepeatFix) {\n"
+-        "		tex = rel_tex_coord(tex, wh, repeat);\n"
+-        "		if (repeat == RepeatFix + RepeatNone) {\n"
+-        "			if (tex.x < 0.0 || tex.x >= 1.0 || \n"
+-        "			    tex.y < 0.0 || tex.y >= 1.0)\n"
+-        "				return vec4(0.0, 0.0, 0.0, 0.0);\n"
+-        "			tex = (fract(tex) / wh.xy);\n"
+-        "		}\n"
+-        "	}\n"
+-        "	return vec4(texture2D(tex_image, tex).rgb, 1.0);\n"
++        "	if (set_alpha != 1)\n"
++        "		return texture2D(tex_image, tex);\n"
++        "	else\n"
++        "		return vec4(texture2D(tex_image, tex).rgb, 1.0);\n"
+         "}\n";
++// Omegamoon <<
+ 
+     const char *source_solid_fetch =
+         "uniform vec4 source;\n"
+@@ -138,24 +128,34 @@
+         "{\n"
+         "	return source;\n"
+         "}\n";
++// Omegamoon >>
+     const char *source_alpha_pixmap_fetch =
+         "varying vec2 source_texture;\n"
+         "uniform sampler2D source_sampler;\n"
+         "uniform vec4 source_wh;"
+         "vec4 get_source()\n"
+         "{\n"
+-        "	return rel_sampler_rgba(source_sampler, source_texture,\n"
+-        "			        source_wh, source_repeat_mode);\n"
++        "	if (source_repeat_mode < RepeatFix)\n"
++        "		return texture2D(source_sampler, source_texture);\n"
++        "	else \n"
++        "		return rel_sampler(source_sampler, source_texture,\n"
++        "				   source_wh, source_repeat_mode, 0);\n"
+         "}\n";
++// Omegamoon <<
++// Omegamoon >>
+     const char *source_pixmap_fetch =
+         "varying vec2 source_texture;\n"
+         "uniform sampler2D source_sampler;\n"
+         "uniform vec4 source_wh;\n"
+         "vec4 get_source()\n"
+         "{\n"
+-        "	return rel_sampler_rgbx(source_sampler, source_texture,\n"
+-        "				source_wh, source_repeat_mode);\n"
++        "	if (source_repeat_mode < RepeatFix) \n"
++        "		return vec4(texture2D(source_sampler, source_texture).rgb, 1);\n"
++        "	else \n"
++        "		return rel_sampler(source_sampler, source_texture,\n"
++        "				   source_wh, source_repeat_mode, 1);\n"
+         "}\n";
++// Omegamoon <<
+     const char *mask_none =
+         "vec4 get_mask()\n"
+         "{\n"
+@@ -167,14 +167,18 @@
+         "{\n"
+         "	return mask;\n"
+         "}\n";
++// Omegamoon >>		
+     const char *mask_alpha_pixmap_fetch =
+         "varying vec2 mask_texture;\n"
+         "uniform sampler2D mask_sampler;\n"
+         "uniform vec4 mask_wh;\n"
+         "vec4 get_mask()\n"
+         "{\n"
+-        "	return rel_sampler_rgba(mask_sampler, mask_texture,\n"
+-        "			        mask_wh, mask_repeat_mode);\n"
++        "	if (mask_repeat_mode < RepeatFix) \n"
++        "		return texture2D(mask_sampler, mask_texture);\n"
++        "	else \n"
++        "		return rel_sampler(mask_sampler, mask_texture,\n"
++        "				   mask_wh, mask_repeat_mode, 0);\n"
+         "}\n";
+     const char *mask_pixmap_fetch =
+         "varying vec2 mask_texture;\n"
+@@ -182,9 +186,13 @@
+         "uniform vec4 mask_wh;\n"
+         "vec4 get_mask()\n"
+         "{\n"
+-        "	return rel_sampler_rgbx(mask_sampler, mask_texture,\n"
+-        "				mask_wh, mask_repeat_mode);\n"
++        "	if (mask_repeat_mode < RepeatFix) \n"
++        "		return vec4(texture2D(mask_sampler, mask_texture).rgb, 1);\n"
++        "	else \n"
++        "		return rel_sampler(mask_sampler, mask_texture,\n"
++        "				   mask_wh, mask_repeat_mode, 1);\n"
+         "}\n";
++// Omegamoon <<
+ 
+     const char *dest_swizzle_default =
+         "vec4 dest_swizzle(vec4 color)\n"
+@@ -570,8 +578,10 @@
+      * is RGB (no alpha), which we use for 16bpp textures.
+      */
+     if (glamor_pixmap_priv_is_large(pixmap_priv) ||
+-        (!PICT_FORMAT_A(picture->format) &&
+-         repeat_type == RepeatNone && picture->transform)) {
++// Omegamoon >>	
++        (glamor_priv->gl_flavor == GLAMOR_GL_ES2 && repeat_type == RepeatNone &&
++         picture->transform)) {
++// Omegamoon <<
+         glamor_pixmap_fbo_fix_wh_ratio(wh, pixmap, pixmap_priv);
+         glUniform4fv(wh_location, 1, wh);
+ 
+@@ -662,6 +672,9 @@
+         return;
+ 
+     glamor_glDrawArrays_GL_QUADS(glamor_priv, glamor_priv->render_nr_quads);
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ }
+ 
+ static const int pict_format_combine_tab[][3] = {
+diff -Naur a/glamor/glamor_segs.c b/glamor/glamor_segs.c
+--- a/glamor/glamor_segs.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_segs.c	2017-02-05 01:06:31.000000000 +0100
+@@ -107,6 +107,9 @@
+             glDrawArrays(GL_LINES, 0, nseg << (1 + add_last));
+         }
+     }
++// Omegamoon >>	
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+diff -Naur a/glamor/glamor_spans.c b/glamor/glamor_spans.c
+--- a/glamor/glamor_spans.c	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor_spans.c	2017-02-05 01:06:49.000000000 +0100
+@@ -139,6 +139,9 @@
+             }
+         }
+     }
++// Omegamoon >>
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glDisable(GL_SCISSOR_TEST);
+     if (glamor_priv->glsl_version >= 130)
+diff -Naur a/glamor/glamor_text.c b/glamor/glamor_text.c
+--- a/glamor/glamor_text.c	2016-10-01 06:47:16.000000000 +0200
++++ b/glamor/glamor_text.c	2017-02-05 01:06:58.000000000 +0100
+@@ -211,6 +211,9 @@
+         }
+         glDisable(GL_SCISSOR_TEST);
+     }
++// Omegamoon >>	
++    glamor_draw_add();
++// Omegamoon <<
+ 
+     glVertexAttribDivisor(GLAMOR_VERTEX_SOURCE, 0);
+     glDisableVertexAttribArray(GLAMOR_VERTEX_SOURCE);
+diff -Naur a/glamor/glamor_transfer.c b/glamor/glamor_transfer.c
+--- a/glamor/glamor_transfer.c	2016-06-05 21:04:31.000000000 +0200
++++ b/glamor/glamor_transfer.c	2017-02-05 01:07:08.000000000 +0100
+@@ -31,7 +31,9 @@
+     case 24:
+     case 32:
+         *format = GL_BGRA;
+-        *type = GL_UNSIGNED_INT_8_8_8_8_REV;
++// Omegamoon >>		
++        *type = GL_UNSIGNED_BYTE;//GL_UNSIGNED_INT_8_8_8_8_REV;
++// Omegamoon <<		
+         break;
+     case 16:
+         *format = GL_RGB;
+diff -Naur a/glamor/glamor_utils.h b/glamor/glamor_utils.h
+--- a/glamor/glamor_utils.h	2016-10-05 20:05:15.000000000 +0200
++++ b/glamor/glamor_utils.h	2017-02-05 01:07:30.000000000 +0100
+@@ -620,9 +620,10 @@
+     glamor_screen_private *glamor_priv =
+         glamor_get_screen_private((pixmap)->drawable.pScreen);
+ 
+-    if (glamor_priv->gl_flavor == GLAMOR_GL_DESKTOP &&
+-        ((pixmap)->drawable.depth == 1 || (pixmap)->drawable.depth == 8)) {
+-        return glamor_priv->one_channel_format;
++// Omegamoon >>
++    if (((pixmap)->drawable.depth == 1 || (pixmap)->drawable.depth == 8)) {
++        return GL_ALPHA;
++// Omegamoon <<
+     } else {
+         return GL_RGBA;
+     }
+diff -Naur a/glamor/glamor_xv.c b/glamor/glamor_xv.c
+--- a/glamor/glamor_xv.c	2016-05-29 08:37:04.000000000 +0200
++++ b/glamor/glamor_xv.c	2017-02-05 01:07:54.000000000 +0100
+@@ -389,6 +389,9 @@
+             glDrawArrays(GL_TRIANGLE_FAN, 0, 3);
+         }
+     }
++// Omegamoon >>	
++    glBindFramebuffer(GL_FRAMEBUFFER, 0);
++// Omegamoon <<
+     glDisable(GL_SCISSOR_TEST);
+ 
+     glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
+@@ -429,12 +432,14 @@
+             if (port_priv->src_pix[i])
+                 glamor_destroy_pixmap(port_priv->src_pix[i]);
+ 
++// Omegamoon >>
+         port_priv->src_pix[0] =
+-            glamor_create_pixmap(pScreen, width, height, 8, 0);
++            glamor_create_pixmap(pScreen, width, height, 8, GLAMOR_CREATE_FBO_NO_FBO);
+         port_priv->src_pix[1] =
+-            glamor_create_pixmap(pScreen, width >> 1, height >> 1, 8, 0);
++            glamor_create_pixmap(pScreen, width >> 1, height >> 1, 8, GLAMOR_CREATE_FBO_NO_FBO);
+         port_priv->src_pix[2] =
+-            glamor_create_pixmap(pScreen, width >> 1, height >> 1, 8, 0);
++            glamor_create_pixmap(pScreen, width >> 1, height >> 1, 8, GLAMOR_CREATE_FBO_NO_FBO);
++// Omegamoon <<
+         port_priv->src_pix_w = width;
+         port_priv->src_pix_h = height;
+ 
+diff -Naur a/include/gcstruct.h b/include/gcstruct.h
+--- a/include/gcstruct.h	2016-10-01 06:47:16.000000000 +0200
++++ b/include/gcstruct.h	2017-02-05 01:10:20.000000000 +0100
+@@ -233,6 +233,9 @@
+                         int /*h */ ,
+                         int /*x */ ,
+                         int /*y */ );
++// Omegamoon >>
++    void (*Flush) (GCPtr /*pGC */);
++// Omegamoon <<
+ } GCOps;
+ 
+ /* there is padding in the bit fields because the Sun compiler doesn't
+diff -Naur a/include/os.h b/include/os.h
+--- a/include/os.h	2016-10-28 16:52:44.000000000 +0200
++++ b/include/os.h	2017-02-05 15:40:47.000000000 +0100
+@@ -96,7 +96,9 @@
+ _X_ATTRIBUTE_PRINTF(1, 0);
+ #endif
+ 
+-extern _X_EXPORT Bool WaitForSomething(Bool clients_are_ready);
++// Omegamoon >>
++extern _X_EXPORT Bool WaitForSomething(Bool clients_are_ready, int *(ProcFlush)(void));
++// Omegamoon <<
+ 
+ extern _X_EXPORT int ReadRequestFromClient(ClientPtr /*client */ );
+ 
+diff -Naur a/miext/damage/damage.c b/miext/damage/damage.c
+--- a/miext/damage/damage.c	2016-10-01 06:47:16.000000000 +0200
++++ b/miext/damage/damage.c	2017-02-05 15:46:18.000000000 +0100
+@@ -335,6 +335,9 @@
+ };
+ 
+ static GCOps damageGCOps;
++// Omegamoon >>
++GCOps gOps = {0};
++// Omegamoon <<
+ 
+ static Bool
+ damageCreateGC(GCPtr pGC)
+@@ -362,6 +365,7 @@
+     const GCFuncs *oldFuncs = pGC->funcs; \
+     unwrap(pGCPriv, pGC, funcs);  \
+     unwrap(pGCPriv, pGC, ops); \
++    gOps.Flush = pGC->ops->Flush;  // Omegamoon << Get flush function; Beware... this is a macro :)
+ 
+ #define DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable) \
+     wrap(pGCPriv, pGC, funcs, oldFuncs); \
+@@ -1419,6 +1423,16 @@
+     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
+ }
+ 
++// Omegamoon >>
++void
++damageFlush(void)
++{
++    if(gOps.Flush) {
++        (*gOps.Flush) (NULL);
++    }
++}
++// Omegamoon <<
++
+ static void
+ damageRemoveDamage(DamagePtr * pPrev, DamagePtr pDamage)
+ {
+diff -Naur a/miext/damage/damage.h b/miext/damage/damage.h
+--- a/miext/damage/damage.h	2016-09-16 06:41:15.000000000 +0200
++++ b/miext/damage/damage.h	2017-02-05 14:33:39.000000000 +0100
+@@ -112,4 +112,7 @@
+ 
+ extern _X_EXPORT DamageScreenFuncsPtr DamageGetScreenFuncs(ScreenPtr);
+ 
++extern _X_EXPORT void
++ damageFlush(void);
++
+ #endif                          /* _DAMAGE_H_ */
+diff -Naur a/os/WaitFor.c b/os/WaitFor.c
+--- a/os/WaitFor.c	2016-10-28 18:00:40.000000000 +0200
++++ b/os/WaitFor.c	2017-02-05 01:21:39.000000000 +0100
+@@ -179,7 +179,9 @@
+  *****************/
+ 
+ Bool
+-WaitForSomething(Bool are_ready)
++// Omegamoon >>
++WaitForSomething(Bool are_ready, int *(ProcFlush)(void))
++// Omegamoon <<
+ {
+     int i;
+     int timeout;
+@@ -220,8 +222,14 @@
+         /* keep this check close to select() call to minimize race */
+         if (dispatchException)
+             i = -1;
+-        else
++        else {
+             i = ospoll_wait(server_poll, timeout);
++// Omegamoon >>
++			// TODO: call ProcFlush() when timeout expired
++			if (i <= 0)
++				ProcFlush();
++// Omegamoon <<
++		}
+         pollerr = GetErrno();
+         WakeupHandler(i);
+         if (i <= 0) {           /* An error or timeout occurred */
