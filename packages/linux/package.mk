@@ -31,6 +31,7 @@ case "$LINUX" in
   rockchip-4.4)
     PKG_VERSION="release-4.4"
     PKG_URL="https://github.com/omegamoon/kernel/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_DIR="kernel-$PKG_VERSION"
 
     if [ -z "$DEVICE_TREE" ]; then
       DEVICE_TREE=rk3288-popmetal
