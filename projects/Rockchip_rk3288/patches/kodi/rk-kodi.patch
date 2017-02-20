@@ -1,0 +1,1429 @@
+diff -Naur a/configure.ac b/configure.ac
+--- a/configure.ac	2016-12-19 09:22:07.000000000 +0100
++++ b/configure.ac	2017-02-05 22:54:10.797566950 +0100
+@@ -475,7 +475,7 @@
+ 
+ AC_ARG_ENABLE([codec],
+   [AS_HELP_STRING([--enable-codec],
+-  [enable additional codecs from a list of comma separated names, (default is none, choices are amcodec and imxvpu)])],
++  [enable additional codecs from a list of comma separated names, (default is none, choices are amcodec, rkva and imxvpu)])],
+   [add_codecs=$enableval],
+   [add_codecs=no])
+ 
+@@ -1762,6 +1762,17 @@
+         CFLAGS="$CFLAGS -DEGL_API_FB"
+       fi
+       ;;
++    *rkva*)
++      if test "$use_gles" = "yes"; then
++        if test "$use_vaapi" = "yes"; then
++          XB_ADD_CODEC([RKVA], [rkva], [$codecs])
++        else
++          AC_MSG_RESULT([rkva is not enabled])
++        fi
++      else
++        AC_MSG_RESULT([rkva is not enabled])
++      fi
++      ;;
+     *)
+   esac
+ done
+diff -Naur a/project/cmake/CMakeLists.txt b/project/cmake/CMakeLists.txt
+--- a/project/cmake/CMakeLists.txt	2017-02-05 22:43:43.542389421 +0100
++++ b/project/cmake/CMakeLists.txt	2017-02-14 13:36:48.666586357 +0100
+@@ -56,6 +56,9 @@
+     option(ENABLE_X11         "Enable X11 support?" ON)
+     option(ENABLE_AML         "Enable AML?" OFF)
+     option(ENABLE_IMX         "Enable IMX?" OFF)
++    # Omegamoon >> Add rockchip support
++    option(ENABLE_RK          "Enable RK?" OFF)
++    # Omegamoon <<
+   endif()
+ endif()
+ # System options
+@@ -215,6 +218,9 @@
+ if(CORE_SYSTEM_NAME STREQUAL android OR CORE_SYSTEM_NAME STREQUAL linux)
+   core_optional_dep(AML)
+   core_optional_dep(IMX)
++  # Omegamoon >> Added rockchip support
++  core_optional_dep(RK)
++  # Omegamoon <<
+ elseif(CORE_SYSTEM_NAME STREQUAL rbpi)
+   core_require_dep(MMAL)
+ endif()
+diff -Naur a/project/cmake/modules/FindRK.cmake b/project/cmake/modules/FindRK.cmake
+--- a/project/cmake/modules/FindRK.cmake	1970-01-01 01:00:00.000000000 +0100
++++ b/project/cmake/modules/FindRK.cmake	2017-02-06 11:42:58.000000000 +0100
+@@ -0,0 +1,24 @@
++#.rst:
++# FindRK
++# -------
++# Finds the Rockchip VA codec
++#
++# This will will define the following variables::
++#
++# RK_FOUND - system has RK
++# RK_LIBRARIES - the RK libraries
++# RK_DEFINITIONS - the RK definitions
++
++find_library(RK_LIBRARIES NAMES "rockchip_drv_video" 
++                          PATHS NO_DEFAULT_PATH)
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(RK
++                                  REQUIRED_VARS RK_LIBRARIES)
++
++if(RK_FOUND)
++  set(RK_LIBRARY_DIRS ${RK_LIBRARY_DIR})
++  set(RK_DEFINITIONS -DHAS_RKVA=1)
++endif()
++
++mark_as_advanced(RK_LIBRARIES)
+diff -Naur a/project/cmake/modules/FindX.cmake b/project/cmake/modules/FindX.cmake
+--- a/project/cmake/modules/FindX.cmake	2016-12-19 09:22:07.000000000 +0100
++++ b/project/cmake/modules/FindX.cmake	2017-02-14 13:33:37.271592514 +0100
+@@ -25,16 +25,19 @@
+                        PATHS ${PC_X_x11_LIBDIR})
+ find_library(X_EXT_LIBRARY NAMES Xext
+                            PATHS ${PC_X_xext_LIBDIR})
++find_library(X_RANDR_LIBRARY NAMES Xrandr
++                           PATHS ${PC_X_xrandr_LIBDIR})
+ 
+ set(X_VERSION ${PC_X_x11_VERSION})
+ 
+ include(FindPackageHandleStandardArgs)
+ find_package_handle_standard_args(X
+-                                  REQUIRED_VARS X_LIBRARY X_EXT_LIBRARY X_INCLUDE_DIR
++                                  REQUIRED_VARS X_LIBRARY X_EXT_LIBRARY X_RANDR_LIBRARY X_INCLUDE_DIR
+                                   VERSION_VAR X_VERSION)
+ 
+ if(X_FOUND)
+-  set(X_LIBRARIES ${X_LIBRARY} ${X_EXT_LIBRARY})
++  # Omegamoon >> Add libXrandr here to get it linked in... not pretty maybe, but at least it works!
++  set(X_LIBRARIES ${X_LIBRARY} ${X_EXT_LIBRARY} ${X_RANDR_LIBRARY})
+   set(X_INCLUDE_DIRS ${X_INCLUDE_DIR})
+   set(X_DEFINITIONS -DHAVE_X11=1)
+ 
+@@ -52,6 +55,13 @@
+                                   INTERFACE_INCLUDE_DIRECTORIES "${X_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES X::X)
+   endif()
++  if(NOT TARGET X::Xrandr)
++    add_library(X::Xrandr UNKNOWN IMPORTED)
++    set_target_properties(X::Xrandr PROPERTIES
++                                  IMPORTED_LOCATION "${X_RANDR_LIBRARY}"
++                                  INTERFACE_INCLUDE_DIRECTORIES "${X_INCLUDE_DIR}"
++                                  INTERFACE_LINK_LIBRARIES X::X)
++  endif()
+ endif()
+ 
+-mark_as_advanced(X_INCLUDE_DIR X_LIBRARY X_EXT_LIBRARY)
++mark_as_advanced(X_INCLUDE_DIR X_LIBRARY X_EXT_LIBRARY X_RANDR_LIBRARY)
+diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
+--- a/xbmc/Application.cpp	2017-02-05 22:43:43.502389721 +0100
++++ b/xbmc/Application.cpp	2017-01-24 22:51:39.000000000 +0100
+@@ -756,6 +756,7 @@
+   }
+ 
+   // update the window resolution
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Update the window resolution",__FUNCTION__);
+   g_Windowing.SetWindowResolution(CSettings::GetInstance().GetInt(CSettings::SETTING_WINDOW_WIDTH), CSettings::GetInstance().GetInt(CSettings::SETTING_WINDOW_HEIGHT));
+ 
+   if (g_advancedSettings.m_startFullScreen && CDisplaySettings::GetInstance().GetCurrentResolution() == RES_WINDOW)
+@@ -765,6 +766,7 @@
+     sav_res = true;
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Check if requested resolution is valid",__FUNCTION__);
+   if (!g_graphicsContext.IsValidResolution(CDisplaySettings::GetInstance().GetCurrentResolution()))
+   {
+     // Oh uh - doesn't look good for starting in their wanted screenmode
+@@ -772,6 +774,7 @@
+     CDisplaySettings::GetInstance().SetCurrentResolution(RES_DESKTOP);
+     sav_res = true;
+   }
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Calling InitWindow()",__FUNCTION__);
+   if (!InitWindow())
+   {
+     return false;
+@@ -780,6 +783,7 @@
+   if (sav_res)
+     CDisplaySettings::GetInstance().SetCurrentResolution(RES_DESKTOP, true);
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Displaying splash screen",__FUNCTION__);
+   CSplash::GetInstance().Show();
+ 
+   // The key mappings may already have been loaded by a peripheral
+@@ -804,12 +808,14 @@
+     res = CDisplaySettings::GetInstance().GetCurrentResolution();
+ 
+   bool bFullScreen = res != RES_WINDOW;
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Creating new %swindow",__FUNCTION__, (bFullScreen?"fullscreen ":""));
+   if (!g_Windowing.CreateNewWindow(CSysInfo::GetAppName(), bFullScreen, CDisplaySettings::GetInstance().GetResolutionInfo(res), OnEvent))
+   {
+     CLog::Log(LOGFATAL, "CApplication::Create: Unable to create window");
+     return false;
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Calling InitRenderSystem()", __FUNCTION__);
+   if (!g_Windowing.InitRenderSystem())
+   {
+     CLog::Log(LOGFATAL, "CApplication::Create: Unable to init rendering system");
+diff -Naur a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp	2017-02-05 22:54:12.417554299 +0100
+@@ -171,8 +171,10 @@
+   int max_attributes = vaMaxNumDisplayAttributes(m_display);
+   m_attributes = new VADisplayAttribute[max_attributes];
+ 
++#if 0  
+   if (!CheckSuccess(vaQueryDisplayAttributes(m_display, m_attributes, &m_attributeCount)))
+     return;
++#endif
+ 
+   for(int i = 0; i < m_attributeCount; i++)
+   {
+@@ -465,6 +467,7 @@
+ 
+ bool CDecoder::Open(AVCodecContext* avctx, AVCodecContext* mainctx, const enum AVPixelFormat fmt, unsigned int surfaces)
+ {
++#if !defined(HAS_RKVA)
+   // don't support broken wrappers by default
+   // nvidia cards with a vaapi to vdpau wrapper
+   // fglrx cards with xvba-va-driver
+@@ -482,6 +485,7 @@
+       return false;
+     }
+   }
++#endif
+ 
+   // check if user wants to decode this format with VAAPI
+   std::map<AVCodecID, std::string> settings_map = {
+@@ -1210,9 +1214,14 @@
+     return false;
+   }
+   memset(&glInterop.vBufInfo, 0, sizeof(glInterop.vBufInfo));
++#if !defined(HAS_RKVA)
+   glInterop.vBufInfo.mem_type = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME;
++#else
++  glInterop.vBufInfo.mem_type = VA_SURFACE_ATTRIB_MEM_TYPE_V4L2;
++#endif
+   status = vaAcquireBufferHandle(glInterop.vadsp, glInterop.vaImage.buf,
+                                  &glInterop.vBufInfo);
++
+   if (status != VA_STATUS_SUCCESS)
+   {
+     CLog::Log(LOGERROR, "VAAPI::%s - Error: %s(%d)", __FUNCTION__, vaErrorStr(status), status);
+@@ -1230,7 +1239,11 @@
+     {
+       attrib = attribs;
+       *attrib++ = EGL_LINUX_DRM_FOURCC_EXT;
++#if !defined(HAS_RKVA)
+       *attrib++ = fourcc_code('R', '8', ' ', ' ');
++#else
++      *attrib++ = fourcc_code('C', '8', ' ', ' ');
++#endif
+       *attrib++ = EGL_WIDTH;
+       *attrib++ = glInterop.vaImage.width;
+       *attrib++ = EGL_HEIGHT;
+@@ -1254,7 +1267,11 @@
+ 
+       attrib = attribs;
+       *attrib++ = EGL_LINUX_DRM_FOURCC_EXT;
++#if !defined(HAS_RKVA)
+       *attrib++ = fourcc_code('G', 'R', '8', '8');
++#else
++      *attrib++ = fourcc_code('A', 'R', '1', '2');
++#endif
+       *attrib++ = EGL_WIDTH;
+       *attrib++ = (glInterop.vaImage.width + 1) >> 1;
+       *attrib++ = EGL_HEIGHT;
+@@ -2370,6 +2387,7 @@
+   }
+ #endif
+ 
++#if !defined(HAS_RKVA)
+   if (!g_Windowing.IsExtSupported("GL_ARB_texture_non_power_of_two") &&
+        g_Windowing.IsExtSupported("GL_ARB_texture_rectangle"))
+   {
+@@ -2377,6 +2395,9 @@
+   }
+   else
+     m_textureTarget = GL_TEXTURE_2D;
++#else
++  m_textureTarget = GL_TEXTURE_2D;
++#endif
+ 
+   eglCreateImageKHR = (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+   eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
+@@ -2415,7 +2436,11 @@
+     EGL_CONTEXT_CLIENT_VERSION, 2,
+     EGL_NONE
+   };
++#if !defined(HAS_RKVA)
+   if (!eglBindAPI(EGL_OPENGL_API))
++#else
++  if (!eglBindAPI(EGL_OPENGL_ES_API))
++#endif
+   {
+     CLog::Log(LOGERROR, "VAAPI::COutput::CreateEGLContext -failed to bind egl API");
+     return false;
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt	2017-02-05 22:54:10.797566950 +0100
+@@ -6,6 +6,8 @@
+ if(VAAPI_FOUND)
+   list(APPEND SOURCES RendererVAAPI.cpp)
+   list(APPEND HEADERS RendererVAAPI.h)
++  list(APPEND SOURCES RendererRKVA.cpp)
++  list(APPEND HEADERS RendererRKVA.h)
+ endif()
+ 
+ if(VDPAU_FOUND)
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in	2017-02-05 22:54:10.797566950 +0100
+@@ -11,6 +11,7 @@
+ endif
+ 
+ ifeq (@USE_OPENGLES@,1)
++SRCS += RendererRKVA.cpp
+ SRCS += RendererVTBGLES.cpp
+ SRCS += RendererIMX.cpp
+ SRCS += RendererOpenMax.cpp
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp	1970-01-01 01:00:00.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp	2017-02-05 22:54:10.797566950 +0100
+@@ -0,0 +1,214 @@
++/*
++ *      Copyright (C) 2007-2015 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "RendererRKVA.h"
++
++#ifdef HAS_RKVA
++
++#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
++#include "cores/VideoPlayer/DVDCodecs/DVDCodecUtils.h"
++#include "settings/Settings.h"
++#include "settings/AdvancedSettings.h"
++#include "utils/log.h"
++#include "utils/GLUtils.h"
++
++CRendererRKVA::CRendererRKVA()
++{
++
++}
++
++CRendererRKVA::~CRendererRKVA()
++{
++  for (int i = 0; i < NUM_BUFFERS; ++i)
++  {
++    DeleteTexture(i);
++  }
++}
++
++void CRendererRKVA::AddVideoPictureHW(DVDVideoPicture &picture, int index)
++{
++  VAAPI::CVaapiRenderPicture *vaapi = picture.vaapi;
++  YUVBUFFER &buf = m_buffers[index];
++  VAAPI::CVaapiRenderPicture *pic = vaapi->Acquire();
++  if (buf.hwDec)
++    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Release();
++  buf.hwDec = pic;
++
++  if (m_format == RENDER_FMT_VAAPINV12)
++  {
++    YV12Image &im = m_buffers[index].image;
++    CDVDCodecUtils::CopyNV12Picture(&im, &vaapi->DVDPic);
++  }
++}
++
++void CRendererRKVA::ReleaseBuffer(int idx)
++{
++  YUVBUFFER &buf = m_buffers[idx];
++  if (buf.hwDec)
++    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Release();
++  buf.hwDec = NULL;
++}
++
++CRenderInfo CRendererRKVA::GetRenderInfo()
++{
++  CRenderInfo info;
++  info.formats = m_formats;
++  info.max_buffer_size = NUM_BUFFERS;
++  if (m_format == RENDER_FMT_VAAPINV12)
++    info.optimal_buffer_size = 4;
++  else
++    info.optimal_buffer_size = 5;
++  return info;
++}
++
++bool CRendererRKVA::Supports(ERENDERFEATURE feature)
++{
++  return CLinuxRendererGLES::Supports(feature);
++}
++
++bool CRendererRKVA::Supports(ESCALINGMETHOD method)
++{
++  return CLinuxRendererGLES::Supports(method);
++}
++
++bool CRendererRKVA::LoadShadersHook()
++{
++  return false;
++}
++
++bool CRendererRKVA::RenderHook(int idx)
++{
++  return false;
++}
++
++bool CRendererRKVA::CreateTexture(int index)
++{
++  if (m_format == RENDER_FMT_VAAPINV12)
++  {
++    return CreateNV12Texture(index);
++  }
++
++  YV12Image &im     = m_buffers[index].image;
++  YUVFIELDS &fields = m_buffers[index].fields;
++  YUVPLANE  &plane  = fields[0][0];
++
++  DeleteTexture(index);
++
++  memset(&im    , 0, sizeof(im));
++  memset(&fields, 0, sizeof(fields));
++  im.height = m_sourceHeight;
++  im.width  = m_sourceWidth;
++  im.cshift_x = 1;
++  im.cshift_y = 1;
++
++  plane.pixpertex_x = 1;
++  plane.pixpertex_y = 1;
++
++  plane.id = 1;
++
++  return true;
++}
++
++void CRendererRKVA::DeleteTexture(int index)
++{
++  if (m_format == RENDER_FMT_VAAPINV12)
++  {
++    DeleteNV12Texture(index);
++    return;
++  }
++
++  if (m_buffers[index].hwDec)
++    ((VAAPI::CVaapiRenderPicture*)m_buffers[index].hwDec)->Release();
++  m_buffers[index].hwDec = NULL;
++
++  YUVFIELDS &fields = m_buffers[index].fields;
++  fields[FIELD_FULL][0].id = None;
++  fields[FIELD_FULL][1].id = None;
++  fields[FIELD_FULL][2].id = None;
++}
++
++bool CRendererRKVA::UploadTexture(int index)
++{
++  if (m_format == RENDER_FMT_VAAPINV12)
++  {
++    return UploadNV12Texture(index);
++  }
++
++  VAAPI::CVaapiRenderPicture *vaapi = (VAAPI::CVaapiRenderPicture*)m_buffers[index].hwDec;
++
++  YV12Image &im = m_buffers[index].image;
++
++  YUVFIELDS &fields = m_buffers[index].fields;
++
++  if (!vaapi || !vaapi->valid)
++  {
++    return false;
++  }
++
++  YUVPLANES &planes = fields[0];
++
++  planes[0].texwidth  = vaapi->texWidth;
++  planes[0].texheight = vaapi->texHeight;
++
++  planes[1].texwidth  = planes[0].texwidth  >> im.cshift_x;
++  planes[1].texheight = planes[0].texheight >> im.cshift_y;
++  planes[2].texwidth  = planes[1].texwidth;
++  planes[2].texheight = planes[1].texheight;
++
++  for (int p = 0; p < 3; p++)
++  {
++    planes[p].pixpertex_x = 1;
++    planes[p].pixpertex_y = 1;
++  }
++
++  // set textures
++  fields[0][0].id = vaapi->textureY;
++  fields[0][1].id = vaapi->textureVU;
++  fields[0][2].id = vaapi->textureVU;
++
++  glEnable(m_textureTarget);
++
++  for (int p=0; p<2; p++)
++  {
++    glBindTexture(m_textureTarget,fields[0][p].id);
++    glTexParameteri(m_textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
++    glTexParameteri(m_textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++    glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++    glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
++
++    glBindTexture(m_textureTarget, 0);
++    VerifyGLState();
++  }
++
++  CalculateTextureSourceRects(index, 3);
++  glDisable(m_textureTarget);
++  return true;
++}
++
++void CRendererRKVA::AfterRenderHook(int idx)
++{
++  YUVBUFFER &buf = m_buffers[idx];
++  if (buf.hwDec)
++  {
++    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Sync();
++  }
++}
++
++#endif
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h	1970-01-01 01:00:00.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h	2017-02-05 22:54:10.797566950 +0100
+@@ -0,0 +1,56 @@
++/*
++ *      Copyright (C) 2007-2015 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#pragma once
++
++#include "system.h"
++
++#ifdef HAS_RKVA
++
++#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
++
++
++class CRendererRKVA : public CLinuxRendererGLES
++{
++public:
++  CRendererRKVA();
++  virtual ~CRendererRKVA();
++
++  // Player functions
++  virtual void AddVideoPictureHW(DVDVideoPicture &picture, int index) override;
++  virtual void ReleaseBuffer(int idx) override;
++  virtual CRenderInfo GetRenderInfo() override;
++
++  // Feature support
++  virtual bool Supports(ERENDERFEATURE feature) override;
++  virtual bool Supports(ESCALINGMETHOD method) override;
++
++protected:
++  virtual bool LoadShadersHook() override;
++  virtual bool RenderHook(int idx) override;
++  virtual void AfterRenderHook(int idx) override;
++
++  // textures
++  virtual bool UploadTexture(int index) override;
++  virtual void DeleteTexture(int index) override;
++  virtual bool CreateTexture(int index) override;
++};
++
++#endif
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2017-02-05 22:54:10.793566982 +0100
+@@ -1376,14 +1376,14 @@
+ //********************************************************************************************************
+ // NV12 Texture loading, creation and deletion
+ //********************************************************************************************************
+-void CLinuxRendererGLES::UploadNV12Texture(int source)
++bool CLinuxRendererGLES::UploadNV12Texture(int source)
+ {
+   YUVBUFFER& buf    =  m_buffers[source];
+   YV12Image* im     = &buf.image;
+   YUVFIELDS& fields =  buf.fields;
+ 
+   if (!(im->flags & IMAGE_FLAG_READY))
+-    return;
++    return false;
+   bool deinterlacing;
+   if (m_currentField == FIELD_FULL)
+     deinterlacing = false;
+@@ -1436,7 +1436,7 @@
+   CalculateTextureSourceRects(source, 3);
+ 
+   glDisable(m_textureTarget);
+-  return;
++  return true;
+ }
+ 
+ bool CLinuxRendererGLES::CreateNV12Texture(int index)
+@@ -1680,4 +1680,3 @@
+ }
+ 
+ #endif
+-
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2017-02-05 22:54:10.793566982 +0100
+@@ -170,7 +170,7 @@
+   bool CreateYV12Texture(int index);
+   virtual bool SkipUploadYV12(int index) { return false; }
+ 
+-  void UploadNV12Texture(int index);
++  bool UploadNV12Texture(int index);
+   void DeleteNV12Texture(int index);
+   bool CreateNV12Texture(int index);
+ 
+@@ -183,7 +183,7 @@
+   // renderers
+   void RenderMultiPass(int index, int field);     // multi pass glsl renderer
+   void RenderSinglePass(int index, int field);    // single pass glsl renderer
+-  
++
+   // hooks for HwDec Renderered
+   virtual bool LoadShadersHook() { return false; }
+   virtual bool RenderHook(int idx) { return false; }
+diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp	2017-02-05 22:54:10.797566950 +0100
+@@ -43,6 +43,9 @@
+ #endif
+ #elif HAS_GLES == 2
+   #include "LinuxRendererGLES.h"
++#if defined(HAS_RKVA)
++#include "HwDecRender/RendererRKVA.h"
++#endif
+ #if defined(HAS_MMAL)
+ #include "HwDecRender/MMALRenderer.h"
+ #endif
+@@ -519,7 +522,9 @@
+   {
+     if (m_format == RENDER_FMT_VAAPI || m_format == RENDER_FMT_VAAPINV12)
+     {
+-#if defined(HAVE_LIBVA)
++#if defined(HAS_RKVA)
++      m_pRenderer = new CRendererRKVA;
++#elif defined(HAVE_LIBVA)
+       m_pRenderer = new CRendererVAAPI;
+ #endif
+     }
+diff -Naur a/xbmc/system_gl.h b/xbmc/system_gl.h
+--- a/xbmc/system_gl.h	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/system_gl.h	2017-02-13 10:36:46.287265566 +0100
+@@ -46,6 +46,9 @@
+     #include <OpenGLES/ES2/gl.h>
+     #include <OpenGLES/ES2/glext.h>
+   #else
++    // Omegamoon >> Enabled GL_GLEXT_PROTOTYPES to expose EGL entry points needed
++    #define GL_GLEXT_PROTOTYPES
++    // Omegamoon <<
+     #include <GLES2/gl2.h>
+     #include <GLES2/gl2ext.h>
+   #endif
+diff -Naur a/xbmc/windowing/egl/CMakeLists.txt b/xbmc/windowing/egl/CMakeLists.txt
+--- a/xbmc/windowing/egl/CMakeLists.txt	2017-02-05 22:43:43.542389421 +0100
++++ b/xbmc/windowing/egl/CMakeLists.txt	2017-01-11 16:48:20.000000000 +0100
+@@ -1,4 +1,4 @@
+-if(OPENGLES_FOUND OR AML_FOUND OR IMX_FOUND OR MMAL_FOUND)
++if(OPENGLES_FOUND OR AML_FOUND OR IMX_FOUND OR MMAL_FOUND OR RK_FOUND)
+   set(SOURCES EGLWrapper.cpp)
+ 
+   set(HEADERS EGLNativeType.h
+@@ -35,6 +35,13 @@
+   list(APPEND HEADERS EGLNativeTypeIMX.h)
+ endif()
+ 
++# Omegamoon >>
++#if(RK_FOUND)
++  list(APPEND SOURCES EGLNativeTypeRockchip.cpp)
++  list(APPEND HEADERS EGLNativeTypeRockchip.h)
++#endif()
++# Omegamoon <<
++
+ if(SOURCES)
+   core_add_library(windowing_egl)
+ endif()
+diff -Naur a/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp b/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp
+--- a/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp	1970-01-01 01:00:00.000000000 +0100
++++ b/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp	2017-02-10 17:18:38.065416282 +0100
+@@ -0,0 +1,483 @@
++/*
++ *      Copyright (C) 2016-2017 Omegamoon
++ *      http://www.omegamoon.com
++ *
++ */
++
++#include <cstdlib>
++#include "system.h"
++#include <EGL/egl.h>
++
++#include "EGLNativeTypeRockchip.h"
++
++#include <math.h>
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include "utils/log.h"
++#include "utils/RegExp.h"
++#include "utils/StringUtils.h"
++#include "utils/SysfsUtils.h"
++#include "utils/Environment.h"
++#include "guilib/gui3d.h"
++#include "windowing/WindowingFactory.h"
++
++#include <unistd.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <fcntl.h>
++#include <linux/fb.h>
++#include <sys/ioctl.h>
++#include <fstream>
++
++CEGLNativeTypeRockchip::CEGLNativeTypeRockchip()
++{
++  const char *env_framebuffer = getenv("FRAMEBUFFER");
++
++  // default to framebuffer 0
++  m_framebuffer_name = "fb0";
++  if (env_framebuffer)
++  {
++    std::string framebuffer(env_framebuffer);
++    std::string::size_type start = framebuffer.find("fb");
++    m_framebuffer_name = framebuffer.substr(start);
++  }
++  m_nativeWindow = NULL;
++}
++
++CEGLNativeTypeRockchip::~CEGLNativeTypeRockchip()
++{
++}
++
++/**********
++ * Rockchip helper routines
++ **********/
++bool CEGLNativeTypeRockchip::RockchipDetected()
++{
++  static int is_rk = -1;
++  if (is_rk == -1)
++  {
++    // Arbitrary check to see if we're dealing with Rockchip device
++    // Path on 3.10 kernel to identify rockchip platform
++    //is_rk = (SysfsUtils::Has("/sys/bus/platform/drivers/rk-fb") ? 1 : 0);
++    // Path on 4.4+ kernel to identify rockchip platform
++    is_rk = (SysfsUtils::Has("/sys/bus/platform/drivers/rockchip-drm") ? 1 : 0);
++    if (is_rk)
++        CLog::Log(LOGNOTICE, "Rockchip device detected");
++  }
++  return is_rk == 1;
++}
++
++bool CEGLNativeTypeRockchip::RockchipModeToResolution(std::string mode, RESOLUTION_INFO *res) const
++{
++  if (!res)
++    return false;
++
++  res->iWidth = 0;
++  res->iHeight= 0;
++
++  if(mode.empty())
++    return false;
++
++  std::string fromMode = mode;
++  if (!isdigit(mode[0]))
++    fromMode = StringUtils::Mid(mode, 2);
++  StringUtils::Trim(fromMode);
++
++  CRegExp split(true);
++  split.RegComp("([0-9]+)x([0-9]+)([pi])-([0-9]+)");
++  if (split.RegFind(fromMode) < 0)
++    return false;
++
++  int w = atoi(split.GetMatch(1).c_str());
++  int h = atoi(split.GetMatch(2).c_str());
++  std::string p = split.GetMatch(3);
++  int r = atoi(split.GetMatch(4).c_str());
++
++  res->iWidth = w;
++  res->iHeight= h;
++  res->iScreenWidth = w;
++  res->iScreenHeight= h;
++  res->fRefreshRate = r;
++  res->dwFlags = p[0] == 'p' ? D3DPRESENTFLAG_PROGRESSIVE : D3DPRESENTFLAG_INTERLACED;
++
++  res->iScreen       = 0;
++  res->bFullScreen   = true;
++  res->iSubtitles    = (int)(0.965 * res->iHeight);
++  res->fPixelRatio   = 1.0f;
++  res->strMode       = StringUtils::Format("%dx%d @ %.2f%s - Full Screen", res->iScreenWidth, res->iScreenHeight, res->fRefreshRate,
++                                           res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "");
++  res->strId         = mode;
++
++  return res->iWidth > 0 && res->iHeight> 0;
++}
++
++bool CEGLNativeTypeRockchip::RockchipPermissions()
++{  
++/*
++  3.10 kernel:
++    READ/WRITE access: /sys/class/display/display0.HDMI/mode
++    READ access:       /sys/class/display/display0.HDMI/modes
++  4.4+ kernel: 
++    READ/WRITE access: /sys/class/drm/card0/device/graphics/fb0/mode
++    READ access:       /sys/class/drm/card0/device/graphics/fb0/modes
++*/
++
++  // Check if this is a genuine Rockchip device
++  if (!RockchipDetected())
++    return false;
++
++  // Check permissions we need to properly do our job
++  static int permissions_ok = -1;
++  if (permissions_ok == -1)
++  {
++    permissions_ok = 1;
++
++    //if (!SysfsUtils::HasRW("/sys/class/display/HDMI/mode"))
++    if (!SysfsUtils::HasRW("/sys/class/drm/card0/device/graphics/fb0/mode"))
++    {
++      CLog::Log(LOGERROR, "Rockchip EGL >> No permission to change video mode");
++      permissions_ok = 0;
++    }
++  }
++  
++  return permissions_ok == 1;
++}
++
++bool CEGLNativeTypeRockchip::RockchipSetDisplayResolution(const char *resolution)
++{
++  if (m_curHdmiResolution == resolution)
++    return true;
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> Setting Rockchip resolution to %s", resolution);
++
++  // switch display resolution
++  std::string out = resolution;
++  out += '\n';
++  //if (SysfsUtils::SetString("/sys/class/display/HDMI/mode", out.c_str()) < 0)
++  if (SysfsUtils::SetString("/sys/class/drm/card0/device/graphics/fb0/mode", out.c_str()) < 0)
++    return false;
++
++  m_curHdmiResolution = resolution;
++
++  return true;
++}
++
++/**********
++ * Rockchip compatibility check
++ **********/
++bool CEGLNativeTypeRockchip::CheckCompatibility()
++{
++//int fd;
++  
++  bool ok = RockchipDetected();
++  if (ok) {
++    // Check if we can change the framebuffer resolution
++    ok = SysfsUtils::HasRW("/sys/class/drm/card0/device/graphics/fb0/mode");
++    if (!ok)
++      CLog::Log(LOGERROR, "Rockchip EGL >> No permission to change video mode, or path /sys/class/drm/card0/device/graphics/fb0/mode not found");
++/*
++    //fd = open("/sys/class/display/HDMI/mode", O_RDWR);
++    fd = open("/sys/class/drm/card0/device/graphics/fb0/mode", O_RDWR);
++    ok = (fd >= 0);
++    close(fd);
++*/
++  }
++
++  return ok;
++}
++
++/**********
++ * Rockchip routines to initialize and destroy 
++ **********/
++void CEGLNativeTypeRockchip::Initialize()
++{
++  RockchipPermissions();
++}
++
++void CEGLNativeTypeRockchip::Destroy()
++{
++  return;
++}
++
++bool CEGLNativeTypeRockchip::CreateNativeDisplay()
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> CreateNativeDisplay called...");
++
++  m_nativeDisplay = EGL_DEFAULT_DISPLAY;
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::CreateNativeWindow()
++{
++  RESOLUTION_INFO res;
++  int width;
++  int height;
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> CreateNativeWindow called...");
++//#if defined(_FBDEV_WINDOW_H_)
++  /*
++  fbdev_window *nativeWindow = new fbdev_window;
++  if (!nativeWindow)
++    return false;
++  */
++
++  if (GetPreferredResolution(&res)) {
++    // Use resolution which is set during bootup of device, and is decided by kernel
++    CLog::Log(LOGNOTICE, "Rockchip EGL >> Using preferred resolution %dx%d", res.iWidth, res.iHeight);
++/*
++    nativeWindow->width = res.iWidth;
++    nativeWindow->height = res.iHeight;
++*/
++    width = res.iWidth;
++    height = res.iHeight;
++  } else {
++    // Current resolution could not be determined, so fallback to predefined, hardcoded default
++    /*
++    // Use 720p as default when preferred resolution could not be determined
++    nativeWindow->width = 1280;
++    nativeWindow->height = 720;
++    */
++/*
++    // Use 1080p as default when preferred resolution could not be determined
++    nativeWindow->width = 1920;
++    nativeWindow->height = 1080;
++*/  
++    width = 1920;
++    height = 1080;
++
++    CLog::Log(LOGNOTICE, "Rockchip EGL >> Preferred resolution could not be determined, using %dx%d instead", width, height);//nativeWindow->width, nativeWindow->height);
++  }
++
++  //m_nativeWindow = nativeWindow;
++  m_nativeWindow = EGL_DEFAULT_DISPLAY;
++  SetFramebufferResolution(width, height);//nativeWindow->width, nativeWindow->height);
++
++  //CLog::Log(LOGNOTICE, "Rockchip EGL >> CreateNativeWindow finished...");
++  return true;
++//#else
++//  return false;
++//#endif
++}
++
++bool CEGLNativeTypeRockchip::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetNativeDisplay called...");
++  if (!nativeDisplay) {
++    CLog::Log(LOGERROR, "Rockchip EGL >> Native display is undefined");
++    return false;
++  }
++
++  *nativeDisplay = (XBNativeDisplayType*) &m_nativeDisplay;
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::GetNativeWindow(XBNativeWindowType **nativeWindow) const
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetNativeWindow called...");
++  if (!nativeWindow)
++    return false;
++  if (!m_nativeWindow || !m_window)
++    return false;
++  //*nativeWindow = (XBNativeWindowType*)m_nativeWindow;
++  *nativeWindow = (XBNativeWindowType*) &m_nativeWindow;
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetNativeWindow finished...");
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::DestroyNativeDisplay()
++{
++  // Omegamoon >> We don't actuallly destroy the display, since we didn't create it in the first place
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::DestroyNativeWindow()
++{
++//#if defined(_FBDEV_WINDOW_H_)
++  //if (m_nativeWindow)
++    //delete (fbdev_window*)m_nativeWindow, m_nativeWindow = NULL;
++//#endif
++  m_nativeWindow = NULL;
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::GetNativeResolution(RESOLUTION_INFO *res) const
++{
++  std::string mode;
++  RESOLUTION_INFO hdmi_res;
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetNativeResolution called...");
++  //if (SysfsUtils::GetString("/sys/class/display/HDMI/mode", mode) == 0 && RockchipModeToResolution(mode, &hdmi_res))
++  if (SysfsUtils::GetString("/sys/class/drm/card0/device/graphics/fb0/mode", mode) == 0 && RockchipModeToResolution(mode, &hdmi_res))
++  {
++    m_curHdmiResolution = mode;
++    *res = hdmi_res;
++    res->iWidth = m_fb_res.iWidth;
++    res->iHeight = m_fb_res.iHeight;
++    res->iSubtitles = (int)(0.965 * res->iHeight);
++  }
++  else
++  {
++    *res = m_fb_res;
++  }
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetNativeResolution finished...");
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::SetNativeResolution(const RESOLUTION_INFO &res)
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> SetNativeResolution called...");
++  switch((int)(res.fRefreshRate*10))
++  {
++    default:
++    case 600:
++      switch(res.iScreenWidth)
++      {
++        default:
++        case 1280:
++          return RockchipSetDisplayResolution("1280x720p-60");
++          break;
++        case 1920:
++          if (res.dwFlags & D3DPRESENTFLAG_INTERLACED)
++            return RockchipSetDisplayResolution("1920x1080i-60");
++          else
++            return RockchipSetDisplayResolution("1920x1080p-60");
++          break;
++      }
++      break;
++    case 500:
++      switch(res.iScreenWidth)
++      {
++        default:
++        case 1280:
++          return RockchipSetDisplayResolution("1280x720p-50");
++          break;
++        case 1920:
++          if (res.dwFlags & D3DPRESENTFLAG_INTERLACED)
++            return RockchipSetDisplayResolution("1920x1080i-50");
++          else
++            return RockchipSetDisplayResolution("1920x1080p-50");
++          break;
++      }
++      break;
++    case 300:
++      switch(res.iScreenWidth)
++      {
++        case 3840:
++          return RockchipSetDisplayResolution("4k2k30hz");
++          break;
++        default:
++          return RockchipSetDisplayResolution("1920x1080p-30");
++          break;
++      }
++      break;
++    case 250:
++      switch(res.iScreenWidth)
++      {
++        case 3840:
++          return RockchipSetDisplayResolution("4k2k25hz");
++          break;
++        default:
++          return RockchipSetDisplayResolution("1920x1080p-25");
++          break;
++      }
++      break;
++    case 240:
++      switch(res.iScreenWidth)
++      {
++        case 3840:
++          return RockchipSetDisplayResolution("4k2k24hz");
++          break;
++        case 4096:
++          return RockchipSetDisplayResolution("4k2ksmpte");
++          break;
++        default:
++          return RockchipSetDisplayResolution("1920x1080p-24");
++          break;
++      }
++      break;
++  }
++
++  return false;
++}
++
++bool CEGLNativeTypeRockchip::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> ProbeResolutions called...");
++  CEGLNativeTypeRockchip::GetNativeResolution(&m_fb_res);
++
++  std::string valstr;
++  //if (SysfsUtils::GetString("/sys/class/display/HDMI/modes", valstr) < 0)
++  if (SysfsUtils::GetString("/sys/class/drm/card0/device/graphics/fb0/modes", valstr) < 0)
++    return false;
++  std::vector<std::string> probe_str = StringUtils::Split(valstr, "\n");
++
++  resolutions.clear();
++  RESOLUTION_INFO res;
++  for (size_t i = 0; i < probe_str.size(); i++)
++  {
++    if (RockchipModeToResolution(probe_str[i].c_str(), &res))
++    {
++      res.iWidth = m_fb_res.iWidth;
++      res.iHeight = m_fb_res.iHeight;
++      res.iSubtitles    = (int)(0.965 * res.iHeight);
++      resolutions.push_back(res);
++    }
++  }
++  
++  return resolutions.size() > 0;
++}
++
++bool CEGLNativeTypeRockchip::GetPreferredResolution(RESOLUTION_INFO *res) const
++{
++  //return GetNativeResolution(res);
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> GetPreferredResolution called...");
++  // check display/mode, it gets defaulted at boot
++  if (!GetNativeResolution(res))
++  {
++    // default to 720p if we get nothing
++    RockchipModeToResolution("720p", res);
++  }
++
++  return true;
++}
++
++bool CEGLNativeTypeRockchip::ShowWindow(bool show)
++{
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> ShowWindow called...");
++  std::string blank_framebuffer = "/sys/class/graphics/" + m_framebuffer_name + "/blank";
++  SysfsUtils::SetInt(blank_framebuffer.c_str(), show ? 0 : 1);
++  return true;
++}
++
++void CEGLNativeTypeRockchip::SetFramebufferResolution(const RESOLUTION_INFO &res) const
++{
++  SetFramebufferResolution(res.iScreenWidth, res.iScreenHeight);
++}
++
++void CEGLNativeTypeRockchip::SetFramebufferResolution(int width, int height) const
++{
++  int fd0;
++  std::string framebuffer = "/dev/" + m_framebuffer_name;
++
++  CLog::Log(LOGNOTICE, "Rockchip EGL >> SetFramebufferResolution called...");
++  if ((fd0 = open(framebuffer.c_str(), O_RDWR)) >= 0)
++  {
++    struct fb_var_screeninfo vinfo;
++    if (ioctl(fd0, FBIOGET_VSCREENINFO, &vinfo) == 0)
++    {
++      CLog::Log(LOGNOTICE, "Rockchip EGL >> Setting %s to %dx%d resolution", m_framebuffer_name.c_str(), width, height);
++      vinfo.xres = width;
++      vinfo.yres = height;
++      /*
++      vinfo.xres_virtual = 1920;
++      vinfo.yres_virtual = 2160;
++      vinfo.bits_per_pixel = 32;
++      vinfo.activate = FB_ACTIVATE_ALL;
++      */
++      ioctl(fd0, FBIOPUT_VSCREENINFO, &vinfo);
++    }
++    close(fd0);
++  }
++}
+diff -Naur a/xbmc/windowing/egl/EGLNativeTypeRockchip.h b/xbmc/windowing/egl/EGLNativeTypeRockchip.h
+--- a/xbmc/windowing/egl/EGLNativeTypeRockchip.h	1970-01-01 01:00:00.000000000 +0100
++++ b/xbmc/windowing/egl/EGLNativeTypeRockchip.h	2017-01-18 12:22:25.000000000 +0100
+@@ -0,0 +1,72 @@
++#pragma once
++
++/*
++ *      Copyright (C) 2011-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include <string>
++#include <vector>
++
++#include <linux/fb.h>
++#include <EGL/egl.h>
++#include "EGLNativeType.h"
++
++class CEGLNativeTypeRockchip : public CEGLNativeType
++{
++public:
++  CEGLNativeTypeRockchip();
++  virtual ~CEGLNativeTypeRockchip();
++  virtual std::string GetNativeName() const { return "rockchip"; };
++
++  virtual bool  CheckCompatibility();
++  virtual void  Initialize();
++  virtual void  Destroy();
++  virtual int   GetQuirks() { return EGL_QUIRK_NONE; };
++
++  virtual bool  CreateNativeDisplay();
++  virtual bool  CreateNativeWindow();
++  virtual bool  GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const;
++  virtual bool  GetNativeWindow(XBNativeWindowType **nativeWindow) const;
++
++  virtual bool  DestroyNativeWindow();
++  virtual bool  DestroyNativeDisplay();
++
++  virtual bool  GetNativeResolution(RESOLUTION_INFO *res) const;
++  virtual bool  SetNativeResolution(const RESOLUTION_INFO &res);
++  virtual bool  ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions);
++  virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
++
++  virtual bool  ShowWindow(bool show);
++
++protected:
++  bool RockchipDetected();
++  bool RockchipModeToResolution(std::string mode, RESOLUTION_INFO *res) const;
++  bool RockchipPermissions();
++  bool RockchipSetDisplayResolution(const char *resolution);
++
++private:
++  void SetFramebufferResolution(const RESOLUTION_INFO &res) const;
++  void SetFramebufferResolution(int width, int height) const;
++
++  std::string m_framebuffer_name;
++
++  mutable std::string m_curHdmiResolution;
++  mutable RESOLUTION_INFO m_fb_res;
++  EGLNativeWindowType  m_window;
++};
+diff -Naur a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.cpp
+--- a/xbmc/windowing/egl/EGLWrapper.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/windowing/egl/EGLWrapper.cpp	2017-02-12 16:46:23.165950386 +0100
+@@ -37,6 +37,11 @@
+ #if defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
+ #include "EGLNativeTypeAmlogic.h"
+ #endif
++// Omegamoon >> Include Rockchip support... should be done properly with defines later
++#include "EGLNativeTypeRockchip.h"
++#include <EGL/egl.h>
++#include <EGL/eglext.h>
++// Omegamoon <<
+ #include "EGLWrapper.h"
+ 
+ #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+@@ -102,14 +107,19 @@
+ #elif defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation))
+ #endif
++      // Omegamoon >> Added Rockchip support; should be done properly with defines later
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRockchip>(implementation))
++      // Omegamoon <<
+       )
+   {
+     m_nativeTypes = nativeGuess;
+ 
+     m_nativeTypes->Initialize();
++    CLog::Log(LOGNOTICE, "Omegamoon >> %s - Cool! We're one step further!", __FUNCTION__);
+     return true;
+   }
+ 
++  CLog::Log(LOGNOTICE, "Omegamoon >> %s - That didn't work out too well...", __FUNCTION__);
+   return false;
+ }
+ 
+@@ -217,14 +227,48 @@
+   if (!m_nativeTypes->GetNativeDisplay((XBNativeDisplayType**)&nativeDisplay))
+     return false;
+ 
+-  *display = eglGetDisplay(*nativeDisplay);
++// ===
++  // Omegamoon >> Use eglGetPlatformDisplayEXT to get display, instead of eglGetDisplay
++  static PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;
++  get_platform_display = (PFNEGLGETPLATFORMDISPLAYEXTPROC) GetProcAddress("eglGetPlatformDisplayEXT");
++
++  if (get_platform_display) {
++    CLog::Log(LOGNOTICE, "EGLWrapper >> Getting display using eglGetPlatformDisplayEXT");
++/*
++    struct gbm_device *gbm;
++    gbm_create_device(glamor_egl->fd);
++*/
++    *display = get_platform_display(EGL_PLATFORM_GBM_KHR, *nativeDisplay, NULL);
++  } else {
++    CLog::Log(LOGNOTICE, "EGLWrapper >> Failed to get platform display; Try again using eglGetDisplay instead...");
++    *display = eglGetDisplay(*nativeDisplay);
++  }
+   CheckError();
+   if (*display == EGL_NO_DISPLAY)
+   {
+     CLog::Log(LOGERROR, "EGL failed to obtain display");
+     return false;
+   }
++// ===
++/*
++  *display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, *nativeDisplay, NULL);
++  CheckError();
++  if (*display == EGL_NO_DISPLAY)
++  {
++    CLog::Log(LOGNOTICE, "EGLWrapper >> Failed to get display; Try again using eglGetDisplay instead...");
++    *display = eglGetDisplay(*nativeDisplay);
++    CheckError();
++    if (*display == EGL_NO_DISPLAY)
++    {
++      CLog::Log(LOGERROR, "EGL failed to obtain display");
++      return false;
++    }
++  }
++*/
++  // Omegamoon <<
+ 
++  // Omegamoon >> Added debugging...
++  CLog::Log(LOGNOTICE, "EGLWrapper >> eglInitialize called...");
+   status = eglInitialize(*display, 0, 0);
+   CheckError();
+   return status;
+@@ -288,6 +332,7 @@
+   if (!m_nativeTypes->GetNativeWindow((XBNativeWindowType**)&nativeWindow))
+     return false;
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Calling eglCreateWindowSurface()", __FUNCTION__);
+   *surface = eglCreateWindowSurface(display, config, *nativeWindow, NULL);
+   CheckError();
+   return *surface != EGL_NO_SURFACE;
+diff -Naur a/xbmc/windowing/egl/Makefile.in b/xbmc/windowing/egl/Makefile.in
+--- a/xbmc/windowing/egl/Makefile.in	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/windowing/egl/Makefile.in	2017-01-11 16:39:38.000000000 +0100
+@@ -12,6 +12,11 @@
+ ifeq (@USE_IMXVPU@,1)
+ SRCS+= EGLNativeTypeIMX.cpp
+ endif
++
++# Omegamoon >>
++SRCS+= EGLNativeTypeRockchip.cpp
++# Omegamoon <<
++
+ SRCS+= EGLWrapper.cpp
+ 
+ LIB = windowing_egl.a
+diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
+--- a/xbmc/windowing/egl/WinSystemEGL.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/windowing/egl/WinSystemEGL.cpp	2017-01-24 23:59:42.000000000 +0100
+@@ -157,6 +157,7 @@
+   if(m_egl)
+     m_egl->SetNativeResolution(res);
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Checking for EGL quirks", __FUNCTION__);
+   int quirks;
+   m_egl->GetQuirks(&quirks);
+   if (quirks & EGL_QUIRK_RECREATE_DISPLAY_ON_CREATE_WINDOW)
+@@ -169,6 +170,7 @@
+       }
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Creating EGL surface", __FUNCTION__);
+   if (!m_egl->CreateSurface(m_display, m_config, &m_surface))
+   {
+     CLog::Log(LOGNOTICE, "%s: Could not create a surface. Trying with a fresh Native Window.",__FUNCTION__);
+@@ -186,6 +188,7 @@
+     }
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Get EGL surface size", __FUNCTION__);
+   int width = 0, height = 0;
+   if (!m_egl->GetSurfaceSize(m_display, m_surface, &width, &height))
+   {
+@@ -276,6 +279,7 @@
+   m_displayHeight = res.iScreenHeight;
+   m_fRefreshRate  = res.fRefreshRate;
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Checking if a new window needs to be created or not...", __FUNCTION__);
+   if ((m_bWindowCreated && m_egl && m_egl->GetNativeResolution(&current_resolution)) &&
+     current_resolution.iWidth == res.iWidth && current_resolution.iHeight == res.iHeight &&
+     current_resolution.iScreenWidth == res.iScreenWidth && current_resolution.iScreenHeight == res.iScreenHeight &&
+@@ -287,6 +291,7 @@
+     return true;
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> New window needs to be created...", __FUNCTION__);
+   int delay = CSettings::GetInstance().GetInt("videoscreen.delayrefreshchange");
+   if (delay > 0)
+   {
+@@ -308,6 +313,7 @@
+ 
+   // If we previously destroyed an existing window we need to create a new one
+   // (otherwise this is taken care of by InitWindowSystem())
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Creating new window...", __FUNCTION__);
+   if (!CreateWindow(res))
+   {
+     CLog::Log(LOGERROR, "%s: Could not create new window",__FUNCTION__);
+@@ -322,6 +328,7 @@
+       (*i)->OnResetDisplay();
+   }
+ 
++  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Calling Show()...", __FUNCTION__);
+   Show();
+   return true;
+ }
+diff -Naur a/xbmc/windowing/X11/GLContextEGL.cpp b/xbmc/windowing/X11/GLContextEGL.cpp
+--- a/xbmc/windowing/X11/GLContextEGL.cpp	2016-12-19 09:22:07.000000000 +0100
++++ b/xbmc/windowing/X11/GLContextEGL.cpp	2017-02-13 10:59:44.009291628 +0100
+@@ -30,6 +30,9 @@
+   #include <GL/glu.h>
+   #include <GL/glext.h>
+ #elif HAS_GLES == 2
++  // Omegamoon >> Enabled GL_GLEXT_PROTOTYPES to expose EGL entry points needed
++  #define GL_GLEXT_PROTOTYPES
++  // Omegamoon <<
+   #include <GLES2/gl2.h>
+   #include <GLES2/gl2ext.h>
+ #endif
