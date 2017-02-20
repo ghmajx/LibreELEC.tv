@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="LibreELEC-settings"
-PKG_VERSION="042c6c2"
+PKG_VERSION="4cac1fe"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="https://libreelec.tv"
 
-# Omegamoon >> Use LibreELEC-settings containing MoonRock textures
+# Omegamoon >> Use version of LibreELEC-settings containing MoonRock textures
 #PKG_URL="https://github.com/LibreELEC/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
 PKG_URL="https://github.com/omegamoon/service.libreelec.settings/archive/$PKG_VERSION.tar.gz"
 # Omegamoon <<
