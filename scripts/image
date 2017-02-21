@@ -619,12 +619,14 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "rkimage"
     remove $FW_DIR/Image/resource.img
     remove $FW_DIR/Image/boot.img
     remove $FW_DIR/Image/system.img
+    remove $FW_DIR/Image/recovery.img
 
     # Create symbolic links to generated image files
     ln -sv $TARGET_IMG/$IMAGE_NAME-kernel.img $FW_DIR/Image/kernel.img >/dev/null
     ln -sv $TARGET_IMG/$IMAGE_NAME-resource.img $FW_DIR/Image/resource.img >/dev/null
     ln -sv $TARGET_IMG/$IMAGE_NAME-boot.img $FW_DIR/Image/boot.img >/dev/null
     ln -sv $TARGET_IMG/$IMAGE_NAME-system.img $FW_DIR/Image/system.img >/dev/null
+    ln -sv $TARGET_IMG/$IMAGE_NAME-boot.img $FW_DIR/Image/recovery.img >/dev/null
 
     # Head over to the firmware creation directory...
     pushd $FW_DIR > /dev/null
