@@ -26,3 +26,9 @@ make_target() {
 makeinstall_target() {
   : # install from image script
 }
+
+post_unpack() {
+  ( cd $BUILD
+    ln -sv $PKG_NAME-$PKG_VERSION $PKG_NAME
+  )
+}
