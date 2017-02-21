@@ -30,8 +30,9 @@ PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
   rockchip-4.4)
     PKG_VERSION="release-4.4"
-    PKG_URL="https://github.com/omegamoon/kernel/archive/$PKG_VERSION.tar.gz"
-    PKG_SOURCE_DIR="kernel-$PKG_VERSION"
+    PKG_URL="https://github.com/omegamoon/linux-rockchip-kernel/archive/$PKG_VERSION.tar.gz"
+    PKG_SOURCE_DIR="$PKG_NAME-rockchip-kernel-$PKG_VERSION"
+    #PKG_SOURCE_NAME="kernel-$PKG_VERSION.tar.gz"
 
     if [ -z "$DEVICE_TREE" ]; then
       DEVICE_TREE=rk3288-popmetal
@@ -44,7 +45,7 @@ case "$LINUX" in
 
     KERNEL_TARGET=$DEVICE_TREE.img
     # gcc version 4.6.x-google 20120106 (prerelease) -> Works for 3.10+ kernels
-    TARGET_PREFIX=$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
+    TARGET_PREFIX=$ROOT/$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
     
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rockchip-tools"
     ;;
@@ -63,7 +64,7 @@ case "$LINUX" in
 
     KERNEL_TARGET=$DEVICE_TREE.img
     # gcc version 4.6.x-google 20120106 (prerelease) -> Works for 3.10+ kernels
-    TARGET_PREFIX=$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
+    TARGET_PREFIX=$ROOT/$BUILD/rockchip-tools/toolchain/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
 
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rockchip-tools"
     ;;
@@ -238,9 +239,9 @@ make_target() {
     # Omegamoon >> Build Rockchip specific kernel.img and resource.img files
     if [ "$LINUX" = "rockchip-3.10" ] || [ "$LINUX" = "rockchip-4.4" ]; then
       echo "Omegamoon >> Creating Rockchip kernel.img file..."
-      $BUILD/rockchip-tools/firmware/mkkrnlimg arch/$TARGET_KERNEL_ARCH/boot/zImage ./kernel.img >/dev/null
+      $ROOT/$BUILD/rockchip-tools/firmware/mkkrnlimg arch/$TARGET_KERNEL_ARCH/boot/zImage ./kernel.img >/dev/null
       echo "Omegamoon >> Creating Rockchip resource.img file using device tree $DEVICE_TREE..."
-      $BUILD/rockchip-tools/firmware/resource_tool arch/$TARGET_KERNEL_ARCH/boot/dts/$DEVICE_TREE.dtb logo.bmp logo_kernel.bmp >/dev/null
+      $ROOT/$BUILD/rockchip-tools/firmware/resource_tool arch/$TARGET_KERNEL_ARCH/boot/dts/$DEVICE_TREE.dtb logo.bmp logo_kernel.bmp >/dev/null
     
       LDFLAGS="" mkbootimg \
         --kernel ./kernel.img \
