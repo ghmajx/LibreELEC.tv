@@ -1,6 +1,6 @@
 diff -Naur a/dix/dispatch.c b/dix/dispatch.c
---- a/dix/dispatch.c	2016-11-15 17:05:15.000000000 +0100
-+++ b/dix/dispatch.c	2017-02-05 14:45:40.000000000 +0100
+--- a/dix/dispatch.c	2017-01-11 21:04:12.000000000 +0100
++++ b/dix/dispatch.c	2017-02-21 09:45:09.000000000 +0100
 @@ -129,6 +129,9 @@
  #include "xkbsrv.h"
  #include "site.h"
@@ -21,7 +21,7 @@ diff -Naur a/dix/dispatch.c b/dix/dispatch.c
  
  static struct xorg_list ready_clients;
  static struct xorg_list saved_ready_clients;
-@@ -409,7 +415,9 @@
+@@ -419,7 +425,9 @@
              FlushIfCriticalOutputPending();
          }
  
@@ -32,7 +32,7 @@ diff -Naur a/dix/dispatch.c b/dix/dispatch.c
              continue;
  
         /*****************
-@@ -3385,6 +3393,15 @@
+@@ -3395,6 +3403,15 @@
      return Success;
  }
  
@@ -49,8 +49,8 @@ diff -Naur a/dix/dispatch.c b/dix/dispatch.c
   * CloseDownClient
   *
 diff -Naur a/glamor/glamor.c b/glamor/glamor.c
---- a/glamor/glamor.c	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor.c	2017-02-05 00:54:32.000000000 +0100
+--- a/glamor/glamor.c	2017-01-11 20:59:03.000000000 +0100
++++ b/glamor/glamor.c	2017-02-21 09:45:09.000000000 +0100
 @@ -189,6 +189,12 @@
      if (w > 32767 || h > 32767)
          return NullPixmap;
@@ -75,7 +75,7 @@ diff -Naur a/glamor/glamor.c b/glamor/glamor.c
      glamor_priv->has_pack_invert =
          epoxy_has_gl_extension("GL_MESA_pack_invert");
      glamor_priv->has_fbo_blit =
-@@ -874,6 +882,7 @@
+@@ -879,6 +887,7 @@
      return -1;
  }
  
@@ -83,7 +83,7 @@ diff -Naur a/glamor/glamor.c b/glamor/glamor.c
  void
  glamor_finish(ScreenPtr screen)
  {
-@@ -882,3 +891,25 @@
+@@ -887,3 +896,25 @@
      glamor_make_current(glamor_priv);
      glFinish();
  }
@@ -111,8 +111,8 @@ diff -Naur a/glamor/glamor.c b/glamor/glamor.c
 +// Omegamoon <<
 \ No newline at end of file
 diff -Naur a/glamor/glamor_composite_glyphs.c b/glamor/glamor_composite_glyphs.c
---- a/glamor/glamor_composite_glyphs.c	2016-08-31 01:41:47.000000000 +0200
-+++ b/glamor/glamor_composite_glyphs.c	2017-02-05 00:54:46.000000000 +0100
+--- a/glamor/glamor_composite_glyphs.c	2017-01-04 22:32:09.000000000 +0100
++++ b/glamor/glamor_composite_glyphs.c	2017-02-21 09:45:09.000000000 +0100
 @@ -284,6 +284,17 @@
              break;
          prog++;
@@ -132,8 +132,8 @@ diff -Naur a/glamor/glamor_composite_glyphs.c b/glamor/glamor_composite_glyphs.c
      glDisable(GL_SCISSOR_TEST);
  
 diff -Naur a/glamor/glamor_copy.c b/glamor/glamor_copy.c
---- a/glamor/glamor_copy.c	2016-10-05 20:05:44.000000000 +0200
-+++ b/glamor/glamor_copy.c	2017-02-05 00:54:59.000000000 +0100
+--- a/glamor/glamor_copy.c	2017-01-04 22:32:09.000000000 +0100
++++ b/glamor/glamor_copy.c	2017-02-21 09:45:09.000000000 +0100
 @@ -422,6 +422,9 @@
              glamor_glDrawArrays_GL_QUADS(glamor_priv, nbox);
          }
@@ -145,8 +145,8 @@ diff -Naur a/glamor/glamor_copy.c b/glamor/glamor_copy.c
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
  
 diff -Naur a/glamor/glamor_core.c b/glamor/glamor_core.c
---- a/glamor/glamor_core.c	2016-08-11 21:08:48.000000000 +0200
-+++ b/glamor/glamor_core.c	2017-02-05 00:55:11.000000000 +0100
+--- a/glamor/glamor_core.c	2017-01-05 22:19:31.000000000 +0100
++++ b/glamor/glamor_core.c	2017-02-21 09:45:09.000000000 +0100
 @@ -135,6 +135,9 @@
      .ImageGlyphBlt = miImageGlyphBlt,
      .PolyGlyphBlt = glamor_poly_glyph_blt,
@@ -158,8 +158,8 @@ diff -Naur a/glamor/glamor_core.c b/glamor/glamor_core.c
  
  /*
 diff -Naur a/glamor/glamor_dash.c b/glamor/glamor_dash.c
---- a/glamor/glamor_dash.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_dash.c	2017-02-05 00:55:18.000000000 +0100
+--- a/glamor/glamor_dash.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_dash.c	2017-02-21 09:45:09.000000000 +0100
 @@ -225,6 +225,9 @@
              glDrawArrays(mode, 0, n);
          }
@@ -171,8 +171,8 @@ diff -Naur a/glamor/glamor_dash.c b/glamor/glamor_dash.c
      glDisable(GL_SCISSOR_TEST);
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
 diff -Naur a/glamor/glamor_egl.c b/glamor/glamor_egl.c
---- a/glamor/glamor_egl.c	2016-10-15 22:39:02.000000000 +0200
-+++ b/glamor/glamor_egl.c	2017-02-05 01:00:00.000000000 +0100
+--- a/glamor/glamor_egl.c	2017-01-11 21:01:41.000000000 +0100
++++ b/glamor/glamor_egl.c	2017-02-21 10:23:52.000000000 +0100
 @@ -29,6 +29,9 @@
  
  #include "dix-config.h"
@@ -315,24 +315,26 @@ diff -Naur a/glamor/glamor_egl.c b/glamor/glamor_egl.c
      glamor_identify(0);
      glamor_egl = calloc(sizeof(*glamor_egl), 1);
      if (glamor_egl == NULL)
-@@ -766,10 +819,15 @@
-         ErrorF("couldn't get display device\n");
+@@ -767,12 +820,18 @@
          goto error;
      }
--
+ 
 +// Omegamoon >>
 +#if 0
      glamor_egl->display = glamor_egl_get_display(EGL_PLATFORM_GBM_MESA,
                                                   glamor_egl->gbm);
- #else
++#else
 +    glamor_egl->display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, glamor_egl->gbm, NULL);
 +#endif
+     if (!glamor_egl->display) {
+         xf86DrvMsg(scrn->scrnIndex, X_ERROR, "eglGetDisplay() failed\n");
+         goto error;
+     }
 +// Omegamoon <<
-+#else
+ #else
      glamor_egl->display = eglGetDisplay((EGLNativeDisplayType) (intptr_t) fd);
  #endif
- 
-@@ -794,7 +852,9 @@
+@@ -798,7 +857,9 @@
  #define GLAMOR_CHECK_EGL_EXTENSION(EXT)  \
  	if (!epoxy_has_egl_extension(glamor_egl->display, "EGL_" #EXT)) {  \
  		ErrorF("EGL_" #EXT " required.\n");  \
@@ -343,20 +345,20 @@ diff -Naur a/glamor/glamor_egl.c b/glamor/glamor_egl.c
  	}
  
  #define GLAMOR_CHECK_EGL_EXTENSIONS(EXT1, EXT2)	 \
-@@ -807,7 +867,11 @@
+@@ -811,7 +872,11 @@
      GLAMOR_CHECK_EGL_EXTENSION(MESA_drm_image);
      GLAMOR_CHECK_EGL_EXTENSION(KHR_gl_renderbuffer_image);
  #ifdef GLAMOR_GLES2
 -    GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context, KHR_surfaceless_gles2);
 +// Omegamoon >>
-+ GLAMOR_CHECK_EGL_EXTENSION(KHR_surfaceless_context);
++    GLAMOR_CHECK_EGL_EXTENSION(KHR_surfaceless_context);
 +    GLAMOR_CHECK_EGL_EXTENSION(KHR_surfaceless_gles2);
 +//    GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context, KHR_surfaceless_gles2);
 +// Omegamoon <<
  #else
      GLAMOR_CHECK_EGL_EXTENSIONS(KHR_surfaceless_context,
                                  KHR_surfaceless_opengl);
-@@ -820,20 +884,30 @@
+@@ -824,20 +889,30 @@
  #else
      glamor_egl->context = NULL;
  #endif
@@ -397,8 +399,8 @@ diff -Naur a/glamor/glamor_egl.c b/glamor/glamor_egl.c
      }
      /*
 diff -Naur a/glamor/glamor_fbo.c b/glamor/glamor_fbo.c
---- a/glamor/glamor_fbo.c	2016-08-11 21:08:48.000000000 +0200
-+++ b/glamor/glamor_fbo.c	2017-02-05 01:00:22.000000000 +0100
+--- a/glamor/glamor_fbo.c	2017-01-04 22:32:09.000000000 +0100
++++ b/glamor/glamor_fbo.c	2017-02-21 09:45:09.000000000 +0100
 @@ -132,6 +132,10 @@
      if (format == glamor_priv->one_channel_format && format == GL_RED)
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
@@ -411,8 +413,8 @@ diff -Naur a/glamor/glamor_fbo.c b/glamor/glamor_fbo.c
                   format, GL_UNSIGNED_BYTE, NULL);
      glamor_priv->suppress_gl_out_of_memory_logging = false;
 diff -Naur a/glamor/glamor_glyphblt.c b/glamor/glamor_glyphblt.c
---- a/glamor/glamor_glyphblt.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_glyphblt.c	2017-02-05 01:00:38.000000000 +0100
+--- a/glamor/glamor_glyphblt.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_glyphblt.c	2017-02-21 09:45:09.000000000 +0100
 @@ -137,6 +137,9 @@
              glDrawArrays(GL_POINTS, 0, num_points);
          }
@@ -434,8 +436,8 @@ diff -Naur a/glamor/glamor_glyphblt.c b/glamor/glamor_glyphblt.c
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
      return TRUE;
 diff -Naur a/glamor/glamor_gradient.c b/glamor/glamor_gradient.c
---- a/glamor/glamor_gradient.c	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor_gradient.c	2017-02-05 01:00:49.000000000 +0100
+--- a/glamor/glamor_gradient.c	2017-01-04 22:32:09.000000000 +0100
++++ b/glamor/glamor_gradient.c	2017-02-21 09:45:09.000000000 +0100
 @@ -1080,6 +1080,9 @@
  
      /* Now rendering. */
@@ -458,8 +460,8 @@ diff -Naur a/glamor/glamor_gradient.c b/glamor/glamor_gradient.c
      if (stops_count > LINEAR_SMALL_STOPS) {
          free(n_stops);
 diff -Naur a/glamor/glamor_lines.c b/glamor/glamor_lines.c
---- a/glamor/glamor_lines.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_lines.c	2017-02-05 01:01:02.000000000 +0100
+--- a/glamor/glamor_lines.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_lines.c	2017-02-21 09:45:09.000000000 +0100
 @@ -115,6 +115,9 @@
              glDrawArrays(GL_LINE_STRIP, 0, n + add_last);
          }
@@ -471,8 +473,8 @@ diff -Naur a/glamor/glamor_lines.c b/glamor/glamor_lines.c
      glDisable(GL_SCISSOR_TEST);
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
 diff -Naur a/glamor/glamor_points.c b/glamor/glamor_points.c
---- a/glamor/glamor_points.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_points.c	2017-02-05 01:02:47.000000000 +0100
+--- a/glamor/glamor_points.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_points.c	2017-02-21 09:45:09.000000000 +0100
 @@ -102,6 +102,9 @@
              glDrawArrays(GL_POINTS, 0, npt);
          }
@@ -484,8 +486,8 @@ diff -Naur a/glamor/glamor_points.c b/glamor/glamor_points.c
      glDisable(GL_SCISSOR_TEST);
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
 diff -Naur a/glamor/glamor_priv.h b/glamor/glamor_priv.h
---- a/glamor/glamor_priv.h	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor_priv.h	2017-02-05 01:03:06.000000000 +0100
+--- a/glamor/glamor_priv.h	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_priv.h	2017-02-21 09:45:09.000000000 +0100
 @@ -43,6 +43,13 @@
  #include <epoxy/egl.h>
  #endif
@@ -532,8 +534,8 @@ diff -Naur a/glamor/glamor_priv.h b/glamor/glamor_priv.h
  /* glamor_xv */
  typedef struct {
 diff -Naur a/glamor/glamor_rects.c b/glamor/glamor_rects.c
---- a/glamor/glamor_rects.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_rects.c	2017-02-05 01:03:15.000000000 +0100
+--- a/glamor/glamor_rects.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_rects.c	2017-02-21 09:45:09.000000000 +0100
 @@ -131,6 +131,9 @@
              }
          }
@@ -545,8 +547,8 @@ diff -Naur a/glamor/glamor_rects.c b/glamor/glamor_rects.c
      glDisable(GL_SCISSOR_TEST);
      if (glamor_priv->glsl_version >= 130)
 diff -Naur a/glamor/glamor_render.c b/glamor/glamor_render.c
---- a/glamor/glamor_render.c	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor_render.c	2017-02-05 01:06:20.000000000 +0100
+--- a/glamor/glamor_render.c	2017-01-04 22:32:09.000000000 +0100
++++ b/glamor/glamor_render.c	2017-02-21 09:45:09.000000000 +0100
 @@ -104,33 +104,23 @@
          "}\n";
      /* The texture and the pixmap size is not match eaxctly, so can't sample it directly.
@@ -694,8 +696,8 @@ diff -Naur a/glamor/glamor_render.c b/glamor/glamor_render.c
  
  static const int pict_format_combine_tab[][3] = {
 diff -Naur a/glamor/glamor_segs.c b/glamor/glamor_segs.c
---- a/glamor/glamor_segs.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_segs.c	2017-02-05 01:06:31.000000000 +0100
+--- a/glamor/glamor_segs.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_segs.c	2017-02-21 09:45:09.000000000 +0100
 @@ -107,6 +107,9 @@
              glDrawArrays(GL_LINES, 0, nseg << (1 + add_last));
          }
@@ -707,8 +709,8 @@ diff -Naur a/glamor/glamor_segs.c b/glamor/glamor_segs.c
      glDisable(GL_SCISSOR_TEST);
      glDisableVertexAttribArray(GLAMOR_VERTEX_POS);
 diff -Naur a/glamor/glamor_spans.c b/glamor/glamor_spans.c
---- a/glamor/glamor_spans.c	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor_spans.c	2017-02-05 01:06:49.000000000 +0100
+--- a/glamor/glamor_spans.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_spans.c	2017-02-21 09:45:09.000000000 +0100
 @@ -139,6 +139,9 @@
              }
          }
@@ -720,8 +722,8 @@ diff -Naur a/glamor/glamor_spans.c b/glamor/glamor_spans.c
      glDisable(GL_SCISSOR_TEST);
      if (glamor_priv->glsl_version >= 130)
 diff -Naur a/glamor/glamor_text.c b/glamor/glamor_text.c
---- a/glamor/glamor_text.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/glamor/glamor_text.c	2017-02-05 01:06:58.000000000 +0100
+--- a/glamor/glamor_text.c	2017-01-11 17:32:14.000000000 +0100
++++ b/glamor/glamor_text.c	2017-02-21 09:45:09.000000000 +0100
 @@ -211,6 +211,9 @@
          }
          glDisable(GL_SCISSOR_TEST);
@@ -733,8 +735,8 @@ diff -Naur a/glamor/glamor_text.c b/glamor/glamor_text.c
      glVertexAttribDivisor(GLAMOR_VERTEX_SOURCE, 0);
      glDisableVertexAttribArray(GLAMOR_VERTEX_SOURCE);
 diff -Naur a/glamor/glamor_transfer.c b/glamor/glamor_transfer.c
---- a/glamor/glamor_transfer.c	2016-06-05 21:04:31.000000000 +0200
-+++ b/glamor/glamor_transfer.c	2017-02-05 01:07:08.000000000 +0100
+--- a/glamor/glamor_transfer.c	2017-01-04 22:32:10.000000000 +0100
++++ b/glamor/glamor_transfer.c	2017-02-21 09:45:09.000000000 +0100
 @@ -31,7 +31,9 @@
      case 24:
      case 32:
@@ -747,8 +749,8 @@ diff -Naur a/glamor/glamor_transfer.c b/glamor/glamor_transfer.c
      case 16:
          *format = GL_RGB;
 diff -Naur a/glamor/glamor_utils.h b/glamor/glamor_utils.h
---- a/glamor/glamor_utils.h	2016-10-05 20:05:15.000000000 +0200
-+++ b/glamor/glamor_utils.h	2017-02-05 01:07:30.000000000 +0100
+--- a/glamor/glamor_utils.h	2017-01-04 22:32:10.000000000 +0100
++++ b/glamor/glamor_utils.h	2017-02-21 09:45:09.000000000 +0100
 @@ -620,9 +620,10 @@
      glamor_screen_private *glamor_priv =
          glamor_get_screen_private((pixmap)->drawable.pScreen);
@@ -764,8 +766,8 @@ diff -Naur a/glamor/glamor_utils.h b/glamor/glamor_utils.h
          return GL_RGBA;
      }
 diff -Naur a/glamor/glamor_xv.c b/glamor/glamor_xv.c
---- a/glamor/glamor_xv.c	2016-05-29 08:37:04.000000000 +0200
-+++ b/glamor/glamor_xv.c	2017-02-05 01:07:54.000000000 +0100
+--- a/glamor/glamor_xv.c	2017-01-04 22:32:10.000000000 +0100
++++ b/glamor/glamor_xv.c	2017-02-21 09:45:09.000000000 +0100
 @@ -389,6 +389,9 @@
              glDrawArrays(GL_TRIANGLE_FAN, 0, 3);
          }
@@ -795,8 +797,8 @@ diff -Naur a/glamor/glamor_xv.c b/glamor/glamor_xv.c
          port_priv->src_pix_h = height;
  
 diff -Naur a/include/gcstruct.h b/include/gcstruct.h
---- a/include/gcstruct.h	2016-10-01 06:47:16.000000000 +0200
-+++ b/include/gcstruct.h	2017-02-05 01:10:20.000000000 +0100
+--- a/include/gcstruct.h	2017-01-11 17:32:14.000000000 +0100
++++ b/include/gcstruct.h	2017-02-21 09:45:09.000000000 +0100
 @@ -233,6 +233,9 @@
                          int /*h */ ,
                          int /*x */ ,
@@ -808,8 +810,8 @@ diff -Naur a/include/gcstruct.h b/include/gcstruct.h
  
  /* there is padding in the bit fields because the Sun compiler doesn't
 diff -Naur a/include/os.h b/include/os.h
---- a/include/os.h	2016-10-28 16:52:44.000000000 +0200
-+++ b/include/os.h	2017-02-05 15:40:47.000000000 +0100
+--- a/include/os.h	2017-01-05 22:22:37.000000000 +0100
++++ b/include/os.h	2017-02-21 09:45:09.000000000 +0100
 @@ -96,7 +96,9 @@
  _X_ATTRIBUTE_PRINTF(1, 0);
  #endif
@@ -822,9 +824,9 @@ diff -Naur a/include/os.h b/include/os.h
  extern _X_EXPORT int ReadRequestFromClient(ClientPtr /*client */ );
  
 diff -Naur a/miext/damage/damage.c b/miext/damage/damage.c
---- a/miext/damage/damage.c	2016-10-01 06:47:16.000000000 +0200
-+++ b/miext/damage/damage.c	2017-02-05 15:46:18.000000000 +0100
-@@ -335,6 +335,9 @@
+--- a/miext/damage/damage.c	2017-01-11 17:32:14.000000000 +0100
++++ b/miext/damage/damage.c	2017-02-21 09:45:09.000000000 +0100
+@@ -337,6 +337,9 @@
  };
  
  static GCOps damageGCOps;
@@ -834,7 +836,7 @@ diff -Naur a/miext/damage/damage.c b/miext/damage/damage.c
  
  static Bool
  damageCreateGC(GCPtr pGC)
-@@ -362,6 +365,7 @@
+@@ -363,6 +366,7 @@
      const GCFuncs *oldFuncs = pGC->funcs; \
      unwrap(pGCPriv, pGC, funcs);  \
      unwrap(pGCPriv, pGC, ops); \
@@ -842,7 +844,7 @@ diff -Naur a/miext/damage/damage.c b/miext/damage/damage.c
  
  #define DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable) \
      wrap(pGCPriv, pGC, funcs, oldFuncs); \
-@@ -1419,6 +1423,16 @@
+@@ -1421,6 +1425,16 @@
      DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
  }
  
@@ -860,8 +862,8 @@ diff -Naur a/miext/damage/damage.c b/miext/damage/damage.c
  damageRemoveDamage(DamagePtr * pPrev, DamagePtr pDamage)
  {
 diff -Naur a/miext/damage/damage.h b/miext/damage/damage.h
---- a/miext/damage/damage.h	2016-09-16 06:41:15.000000000 +0200
-+++ b/miext/damage/damage.h	2017-02-05 14:33:39.000000000 +0100
+--- a/miext/damage/damage.h	2017-01-11 17:32:14.000000000 +0100
++++ b/miext/damage/damage.h	2017-02-21 09:45:09.000000000 +0100
 @@ -112,4 +112,7 @@
  
  extern _X_EXPORT DamageScreenFuncsPtr DamageGetScreenFuncs(ScreenPtr);
@@ -871,9 +873,9 @@ diff -Naur a/miext/damage/damage.h b/miext/damage/damage.h
 +
  #endif                          /* _DAMAGE_H_ */
 diff -Naur a/os/WaitFor.c b/os/WaitFor.c
---- a/os/WaitFor.c	2016-10-28 18:00:40.000000000 +0200
-+++ b/os/WaitFor.c	2017-02-05 01:21:39.000000000 +0100
-@@ -179,7 +179,9 @@
+--- a/os/WaitFor.c	2017-01-11 21:04:12.000000000 +0100
++++ b/os/WaitFor.c	2017-02-21 09:45:09.000000000 +0100
+@@ -181,7 +181,9 @@
   *****************/
  
  Bool
@@ -884,7 +886,7 @@ diff -Naur a/os/WaitFor.c b/os/WaitFor.c
  {
      int i;
      int timeout;
-@@ -220,8 +222,14 @@
+@@ -222,8 +224,14 @@
          /* keep this check close to select() call to minimize race */
          if (dispatchException)
              i = -1;
