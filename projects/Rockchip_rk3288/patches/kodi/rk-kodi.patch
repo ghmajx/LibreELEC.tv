@@ -1,93 +1,14 @@
-diff -Naur a/configure.ac b/configure.ac
---- a/configure.ac	2016-12-19 09:22:07.000000000 +0100
-+++ b/configure.ac	2017-02-05 22:54:10.797566950 +0100
-@@ -475,7 +475,7 @@
- 
- AC_ARG_ENABLE([codec],
-   [AS_HELP_STRING([--enable-codec],
--  [enable additional codecs from a list of comma separated names, (default is none, choices are amcodec and imxvpu)])],
-+  [enable additional codecs from a list of comma separated names, (default is none, choices are amcodec, rkva and imxvpu)])],
-   [add_codecs=$enableval],
-   [add_codecs=no])
- 
-@@ -1762,6 +1762,17 @@
-         CFLAGS="$CFLAGS -DEGL_API_FB"
-       fi
-       ;;
-+    *rkva*)
-+      if test "$use_gles" = "yes"; then
-+        if test "$use_vaapi" = "yes"; then
-+          XB_ADD_CODEC([RKVA], [rkva], [$codecs])
-+        else
-+          AC_MSG_RESULT([rkva is not enabled])
-+        fi
-+      else
-+        AC_MSG_RESULT([rkva is not enabled])
-+      fi
-+      ;;
-     *)
-   esac
- done
-diff -Naur a/project/cmake/CMakeLists.txt b/project/cmake/CMakeLists.txt
---- a/project/cmake/CMakeLists.txt	2017-02-05 22:43:43.542389421 +0100
-+++ b/project/cmake/CMakeLists.txt	2017-02-14 13:36:48.666586357 +0100
-@@ -56,6 +56,9 @@
-     option(ENABLE_X11         "Enable X11 support?" ON)
-     option(ENABLE_AML         "Enable AML?" OFF)
-     option(ENABLE_IMX         "Enable IMX?" OFF)
-+    # Omegamoon >> Add rockchip support
-+    option(ENABLE_RK          "Enable RK?" OFF)
-+    # Omegamoon <<
-   endif()
- endif()
- # System options
-@@ -215,6 +218,9 @@
- if(CORE_SYSTEM_NAME STREQUAL android OR CORE_SYSTEM_NAME STREQUAL linux)
-   core_optional_dep(AML)
-   core_optional_dep(IMX)
-+  # Omegamoon >> Added rockchip support
-+  core_optional_dep(RK)
-+  # Omegamoon <<
- elseif(CORE_SYSTEM_NAME STREQUAL rbpi)
-   core_require_dep(MMAL)
- endif()
-diff -Naur a/project/cmake/modules/FindRK.cmake b/project/cmake/modules/FindRK.cmake
---- a/project/cmake/modules/FindRK.cmake	1970-01-01 01:00:00.000000000 +0100
-+++ b/project/cmake/modules/FindRK.cmake	2017-02-06 11:42:58.000000000 +0100
-@@ -0,0 +1,24 @@
-+#.rst:
-+# FindRK
-+# -------
-+# Finds the Rockchip VA codec
-+#
-+# This will will define the following variables::
-+#
-+# RK_FOUND - system has RK
-+# RK_LIBRARIES - the RK libraries
-+# RK_DEFINITIONS - the RK definitions
-+
-+find_library(RK_LIBRARIES NAMES "rockchip_drv_video" 
-+                          PATHS NO_DEFAULT_PATH)
-+
-+include(FindPackageHandleStandardArgs)
-+find_package_handle_standard_args(RK
-+                                  REQUIRED_VARS RK_LIBRARIES)
-+
-+if(RK_FOUND)
-+  set(RK_LIBRARY_DIRS ${RK_LIBRARY_DIR})
-+  set(RK_DEFINITIONS -DHAS_RKVA=1)
-+endif()
-+
-+mark_as_advanced(RK_LIBRARIES)
-diff -Naur a/project/cmake/modules/FindX.cmake b/project/cmake/modules/FindX.cmake
---- a/project/cmake/modules/FindX.cmake	2016-12-19 09:22:07.000000000 +0100
-+++ b/project/cmake/modules/FindX.cmake	2017-02-14 13:33:37.271592514 +0100
-@@ -25,16 +25,19 @@
+diff -Naur a/cmake/modules/FindX.cmake b/cmake/modules/FindX.cmake
+--- a/cmake/modules/FindX.cmake	2017-02-07 00:29:48.000000000 +0100
++++ b/cmake/modules/FindX.cmake	2017-02-21 11:08:54.000000000 +0100
+@@ -25,16 +25,21 @@
                         PATHS ${PC_X_x11_LIBDIR})
  find_library(X_EXT_LIBRARY NAMES Xext
                             PATHS ${PC_X_xext_LIBDIR})
++# Omegamoon >>
 +find_library(X_RANDR_LIBRARY NAMES Xrandr
 +                           PATHS ${PC_X_xrandr_LIBDIR})
++# Omegamoon <<
  
  set(X_VERSION ${PC_X_x11_VERSION})
  
@@ -104,7 +25,7 @@ diff -Naur a/project/cmake/modules/FindX.cmake b/project/cmake/modules/FindX.cma
    set(X_INCLUDE_DIRS ${X_INCLUDE_DIR})
    set(X_DEFINITIONS -DHAVE_X11=1)
  
-@@ -52,6 +55,13 @@
+@@ -52,6 +57,13 @@
                                    INTERFACE_INCLUDE_DIRECTORIES "${X_INCLUDE_DIR}"
                                    INTERFACE_LINK_LIBRARIES X::X)
    endif()
@@ -120,17 +41,17 @@ diff -Naur a/project/cmake/modules/FindX.cmake b/project/cmake/modules/FindX.cma
 -mark_as_advanced(X_INCLUDE_DIR X_LIBRARY X_EXT_LIBRARY)
 +mark_as_advanced(X_INCLUDE_DIR X_LIBRARY X_EXT_LIBRARY X_RANDR_LIBRARY)
 diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
---- a/xbmc/Application.cpp	2017-02-05 22:43:43.502389721 +0100
-+++ b/xbmc/Application.cpp	2017-01-24 22:51:39.000000000 +0100
-@@ -756,6 +756,7 @@
+--- a/xbmc/Application.cpp	2017-02-21 10:56:04.919363390 +0100
++++ b/xbmc/Application.cpp	2017-02-21 11:12:14.000000000 +0100
+@@ -747,6 +747,7 @@
    }
  
    // update the window resolution
 +  CLog::Log(LOGNOTICE, "%s: Omegamoon >> Update the window resolution",__FUNCTION__);
-   g_Windowing.SetWindowResolution(CSettings::GetInstance().GetInt(CSettings::SETTING_WINDOW_WIDTH), CSettings::GetInstance().GetInt(CSettings::SETTING_WINDOW_HEIGHT));
+   g_Windowing.SetWindowResolution(m_ServiceManager->GetSettings().GetInt(CSettings::SETTING_WINDOW_WIDTH), m_ServiceManager->GetSettings().GetInt(CSettings::SETTING_WINDOW_HEIGHT));
  
    if (g_advancedSettings.m_startFullScreen && CDisplaySettings::GetInstance().GetCurrentResolution() == RES_WINDOW)
-@@ -765,6 +766,7 @@
+@@ -756,6 +757,7 @@
      sav_res = true;
    }
  
@@ -138,7 +59,7 @@ diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
    if (!g_graphicsContext.IsValidResolution(CDisplaySettings::GetInstance().GetCurrentResolution()))
    {
      // Oh uh - doesn't look good for starting in their wanted screenmode
-@@ -772,6 +774,7 @@
+@@ -763,6 +765,7 @@
      CDisplaySettings::GetInstance().SetCurrentResolution(RES_DESKTOP);
      sav_res = true;
    }
@@ -146,7 +67,7 @@ diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
    if (!InitWindow())
    {
      return false;
-@@ -780,6 +783,7 @@
+@@ -771,6 +774,7 @@
    if (sav_res)
      CDisplaySettings::GetInstance().SetCurrentResolution(RES_DESKTOP, true);
  
@@ -154,7 +75,7 @@ diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
    CSplash::GetInstance().Show();
  
    // The key mappings may already have been loaded by a peripheral
-@@ -804,12 +808,14 @@
+@@ -795,12 +799,14 @@
      res = CDisplaySettings::GetInstance().GetCurrentResolution();
  
    bool bFullScreen = res != RES_WINDOW;
@@ -169,410 +90,10 @@ diff -Naur a/xbmc/Application.cpp b/xbmc/Application.cpp
    if (!g_Windowing.InitRenderSystem())
    {
      CLog::Log(LOGFATAL, "CApplication::Create: Unable to init rendering system");
-diff -Naur a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp	2017-02-05 22:54:12.417554299 +0100
-@@ -171,8 +171,10 @@
-   int max_attributes = vaMaxNumDisplayAttributes(m_display);
-   m_attributes = new VADisplayAttribute[max_attributes];
- 
-+#if 0  
-   if (!CheckSuccess(vaQueryDisplayAttributes(m_display, m_attributes, &m_attributeCount)))
-     return;
-+#endif
- 
-   for(int i = 0; i < m_attributeCount; i++)
-   {
-@@ -465,6 +467,7 @@
- 
- bool CDecoder::Open(AVCodecContext* avctx, AVCodecContext* mainctx, const enum AVPixelFormat fmt, unsigned int surfaces)
- {
-+#if !defined(HAS_RKVA)
-   // don't support broken wrappers by default
-   // nvidia cards with a vaapi to vdpau wrapper
-   // fglrx cards with xvba-va-driver
-@@ -482,6 +485,7 @@
-       return false;
-     }
-   }
-+#endif
- 
-   // check if user wants to decode this format with VAAPI
-   std::map<AVCodecID, std::string> settings_map = {
-@@ -1210,9 +1214,14 @@
-     return false;
-   }
-   memset(&glInterop.vBufInfo, 0, sizeof(glInterop.vBufInfo));
-+#if !defined(HAS_RKVA)
-   glInterop.vBufInfo.mem_type = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME;
-+#else
-+  glInterop.vBufInfo.mem_type = VA_SURFACE_ATTRIB_MEM_TYPE_V4L2;
-+#endif
-   status = vaAcquireBufferHandle(glInterop.vadsp, glInterop.vaImage.buf,
-                                  &glInterop.vBufInfo);
-+
-   if (status != VA_STATUS_SUCCESS)
-   {
-     CLog::Log(LOGERROR, "VAAPI::%s - Error: %s(%d)", __FUNCTION__, vaErrorStr(status), status);
-@@ -1230,7 +1239,11 @@
-     {
-       attrib = attribs;
-       *attrib++ = EGL_LINUX_DRM_FOURCC_EXT;
-+#if !defined(HAS_RKVA)
-       *attrib++ = fourcc_code('R', '8', ' ', ' ');
-+#else
-+      *attrib++ = fourcc_code('C', '8', ' ', ' ');
-+#endif
-       *attrib++ = EGL_WIDTH;
-       *attrib++ = glInterop.vaImage.width;
-       *attrib++ = EGL_HEIGHT;
-@@ -1254,7 +1267,11 @@
- 
-       attrib = attribs;
-       *attrib++ = EGL_LINUX_DRM_FOURCC_EXT;
-+#if !defined(HAS_RKVA)
-       *attrib++ = fourcc_code('G', 'R', '8', '8');
-+#else
-+      *attrib++ = fourcc_code('A', 'R', '1', '2');
-+#endif
-       *attrib++ = EGL_WIDTH;
-       *attrib++ = (glInterop.vaImage.width + 1) >> 1;
-       *attrib++ = EGL_HEIGHT;
-@@ -2370,6 +2387,7 @@
-   }
- #endif
- 
-+#if !defined(HAS_RKVA)
-   if (!g_Windowing.IsExtSupported("GL_ARB_texture_non_power_of_two") &&
-        g_Windowing.IsExtSupported("GL_ARB_texture_rectangle"))
-   {
-@@ -2377,6 +2395,9 @@
-   }
-   else
-     m_textureTarget = GL_TEXTURE_2D;
-+#else
-+  m_textureTarget = GL_TEXTURE_2D;
-+#endif
- 
-   eglCreateImageKHR = (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
-   eglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
-@@ -2415,7 +2436,11 @@
-     EGL_CONTEXT_CLIENT_VERSION, 2,
-     EGL_NONE
-   };
-+#if !defined(HAS_RKVA)
-   if (!eglBindAPI(EGL_OPENGL_API))
-+#else
-+  if (!eglBindAPI(EGL_OPENGL_ES_API))
-+#endif
-   {
-     CLog::Log(LOGERROR, "VAAPI::COutput::CreateEGLContext -failed to bind egl API");
-     return false;
-diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt	2017-02-05 22:54:10.797566950 +0100
-@@ -6,6 +6,8 @@
- if(VAAPI_FOUND)
-   list(APPEND SOURCES RendererVAAPI.cpp)
-   list(APPEND HEADERS RendererVAAPI.h)
-+  list(APPEND SOURCES RendererRKVA.cpp)
-+  list(APPEND HEADERS RendererRKVA.h)
- endif()
- 
- if(VDPAU_FOUND)
-diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in	2017-02-05 22:54:10.797566950 +0100
-@@ -11,6 +11,7 @@
- endif
- 
- ifeq (@USE_OPENGLES@,1)
-+SRCS += RendererRKVA.cpp
- SRCS += RendererVTBGLES.cpp
- SRCS += RendererIMX.cpp
- SRCS += RendererOpenMax.cpp
-diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.cpp	2017-02-05 22:54:10.797566950 +0100
-@@ -0,0 +1,214 @@
-+/*
-+ *      Copyright (C) 2007-2015 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#include "RendererRKVA.h"
-+
-+#ifdef HAS_RKVA
-+
-+#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
-+#include "cores/VideoPlayer/DVDCodecs/DVDCodecUtils.h"
-+#include "settings/Settings.h"
-+#include "settings/AdvancedSettings.h"
-+#include "utils/log.h"
-+#include "utils/GLUtils.h"
-+
-+CRendererRKVA::CRendererRKVA()
-+{
-+
-+}
-+
-+CRendererRKVA::~CRendererRKVA()
-+{
-+  for (int i = 0; i < NUM_BUFFERS; ++i)
-+  {
-+    DeleteTexture(i);
-+  }
-+}
-+
-+void CRendererRKVA::AddVideoPictureHW(DVDVideoPicture &picture, int index)
-+{
-+  VAAPI::CVaapiRenderPicture *vaapi = picture.vaapi;
-+  YUVBUFFER &buf = m_buffers[index];
-+  VAAPI::CVaapiRenderPicture *pic = vaapi->Acquire();
-+  if (buf.hwDec)
-+    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Release();
-+  buf.hwDec = pic;
-+
-+  if (m_format == RENDER_FMT_VAAPINV12)
-+  {
-+    YV12Image &im = m_buffers[index].image;
-+    CDVDCodecUtils::CopyNV12Picture(&im, &vaapi->DVDPic);
-+  }
-+}
-+
-+void CRendererRKVA::ReleaseBuffer(int idx)
-+{
-+  YUVBUFFER &buf = m_buffers[idx];
-+  if (buf.hwDec)
-+    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Release();
-+  buf.hwDec = NULL;
-+}
-+
-+CRenderInfo CRendererRKVA::GetRenderInfo()
-+{
-+  CRenderInfo info;
-+  info.formats = m_formats;
-+  info.max_buffer_size = NUM_BUFFERS;
-+  if (m_format == RENDER_FMT_VAAPINV12)
-+    info.optimal_buffer_size = 4;
-+  else
-+    info.optimal_buffer_size = 5;
-+  return info;
-+}
-+
-+bool CRendererRKVA::Supports(ERENDERFEATURE feature)
-+{
-+  return CLinuxRendererGLES::Supports(feature);
-+}
-+
-+bool CRendererRKVA::Supports(ESCALINGMETHOD method)
-+{
-+  return CLinuxRendererGLES::Supports(method);
-+}
-+
-+bool CRendererRKVA::LoadShadersHook()
-+{
-+  return false;
-+}
-+
-+bool CRendererRKVA::RenderHook(int idx)
-+{
-+  return false;
-+}
-+
-+bool CRendererRKVA::CreateTexture(int index)
-+{
-+  if (m_format == RENDER_FMT_VAAPINV12)
-+  {
-+    return CreateNV12Texture(index);
-+  }
-+
-+  YV12Image &im     = m_buffers[index].image;
-+  YUVFIELDS &fields = m_buffers[index].fields;
-+  YUVPLANE  &plane  = fields[0][0];
-+
-+  DeleteTexture(index);
-+
-+  memset(&im    , 0, sizeof(im));
-+  memset(&fields, 0, sizeof(fields));
-+  im.height = m_sourceHeight;
-+  im.width  = m_sourceWidth;
-+  im.cshift_x = 1;
-+  im.cshift_y = 1;
-+
-+  plane.pixpertex_x = 1;
-+  plane.pixpertex_y = 1;
-+
-+  plane.id = 1;
-+
-+  return true;
-+}
-+
-+void CRendererRKVA::DeleteTexture(int index)
-+{
-+  if (m_format == RENDER_FMT_VAAPINV12)
-+  {
-+    DeleteNV12Texture(index);
-+    return;
-+  }
-+
-+  if (m_buffers[index].hwDec)
-+    ((VAAPI::CVaapiRenderPicture*)m_buffers[index].hwDec)->Release();
-+  m_buffers[index].hwDec = NULL;
-+
-+  YUVFIELDS &fields = m_buffers[index].fields;
-+  fields[FIELD_FULL][0].id = None;
-+  fields[FIELD_FULL][1].id = None;
-+  fields[FIELD_FULL][2].id = None;
-+}
-+
-+bool CRendererRKVA::UploadTexture(int index)
-+{
-+  if (m_format == RENDER_FMT_VAAPINV12)
-+  {
-+    return UploadNV12Texture(index);
-+  }
-+
-+  VAAPI::CVaapiRenderPicture *vaapi = (VAAPI::CVaapiRenderPicture*)m_buffers[index].hwDec;
-+
-+  YV12Image &im = m_buffers[index].image;
-+
-+  YUVFIELDS &fields = m_buffers[index].fields;
-+
-+  if (!vaapi || !vaapi->valid)
-+  {
-+    return false;
-+  }
-+
-+  YUVPLANES &planes = fields[0];
-+
-+  planes[0].texwidth  = vaapi->texWidth;
-+  planes[0].texheight = vaapi->texHeight;
-+
-+  planes[1].texwidth  = planes[0].texwidth  >> im.cshift_x;
-+  planes[1].texheight = planes[0].texheight >> im.cshift_y;
-+  planes[2].texwidth  = planes[1].texwidth;
-+  planes[2].texheight = planes[1].texheight;
-+
-+  for (int p = 0; p < 3; p++)
-+  {
-+    planes[p].pixpertex_x = 1;
-+    planes[p].pixpertex_y = 1;
-+  }
-+
-+  // set textures
-+  fields[0][0].id = vaapi->textureY;
-+  fields[0][1].id = vaapi->textureVU;
-+  fields[0][2].id = vaapi->textureVU;
-+
-+  glEnable(m_textureTarget);
-+
-+  for (int p=0; p<2; p++)
-+  {
-+    glBindTexture(m_textureTarget,fields[0][p].id);
-+    glTexParameteri(m_textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-+    glTexParameteri(m_textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-+    glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-+    glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-+
-+    glBindTexture(m_textureTarget, 0);
-+    VerifyGLState();
-+  }
-+
-+  CalculateTextureSourceRects(index, 3);
-+  glDisable(m_textureTarget);
-+  return true;
-+}
-+
-+void CRendererRKVA::AfterRenderHook(int idx)
-+{
-+  YUVBUFFER &buf = m_buffers[idx];
-+  if (buf.hwDec)
-+  {
-+    ((VAAPI::CVaapiRenderPicture*)buf.hwDec)->Sync();
-+  }
-+}
-+
-+#endif
-diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererRKVA.h	2017-02-05 22:54:10.797566950 +0100
-@@ -0,0 +1,56 @@
-+/*
-+ *      Copyright (C) 2007-2015 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#pragma once
-+
-+#include "system.h"
-+
-+#ifdef HAS_RKVA
-+
-+#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
-+
-+
-+class CRendererRKVA : public CLinuxRendererGLES
-+{
-+public:
-+  CRendererRKVA();
-+  virtual ~CRendererRKVA();
-+
-+  // Player functions
-+  virtual void AddVideoPictureHW(DVDVideoPicture &picture, int index) override;
-+  virtual void ReleaseBuffer(int idx) override;
-+  virtual CRenderInfo GetRenderInfo() override;
-+
-+  // Feature support
-+  virtual bool Supports(ERENDERFEATURE feature) override;
-+  virtual bool Supports(ESCALINGMETHOD method) override;
-+
-+protected:
-+  virtual bool LoadShadersHook() override;
-+  virtual bool RenderHook(int idx) override;
-+  virtual void AfterRenderHook(int idx) override;
-+
-+  // textures
-+  virtual bool UploadTexture(int index) override;
-+  virtual void DeleteTexture(int index) override;
-+  virtual bool CreateTexture(int index) override;
-+};
-+
-+#endif
 diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
---- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2017-02-05 22:54:10.793566982 +0100
-@@ -1376,14 +1376,14 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp	2017-02-21 11:17:47.000000000 +0100
+@@ -1374,14 +1374,14 @@
  //********************************************************************************************************
  // NV12 Texture loading, creation and deletion
  //********************************************************************************************************
@@ -589,7 +110,7 @@ diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/
    bool deinterlacing;
    if (m_currentField == FIELD_FULL)
      deinterlacing = false;
-@@ -1436,7 +1436,7 @@
+@@ -1434,7 +1434,7 @@
    CalculateTextureSourceRects(source, 3);
  
    glDisable(m_textureTarget);
@@ -598,14 +119,9 @@ diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/
  }
  
  bool CLinuxRendererGLES::CreateNV12Texture(int index)
-@@ -1680,4 +1680,3 @@
- }
- 
- #endif
--
 diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
---- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2017-02-05 22:54:10.793566982 +0100
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h	2017-02-21 11:18:00.000000000 +0100
 @@ -170,7 +170,7 @@
    bool CreateYV12Texture(int index);
    virtual bool SkipUploadYV12(int index) { return false; }
@@ -615,42 +131,9 @@ diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/co
    void DeleteNV12Texture(int index);
    bool CreateNV12Texture(int index);
  
-@@ -183,7 +183,7 @@
-   // renderers
-   void RenderMultiPass(int index, int field);     // multi pass glsl renderer
-   void RenderSinglePass(int index, int field);    // single pass glsl renderer
--  
-+
-   // hooks for HwDec Renderered
-   virtual bool LoadShadersHook() { return false; }
-   virtual bool RenderHook(int idx) { return false; }
-diff -Naur a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
---- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp	2017-02-05 22:54:10.797566950 +0100
-@@ -43,6 +43,9 @@
- #endif
- #elif HAS_GLES == 2
-   #include "LinuxRendererGLES.h"
-+#if defined(HAS_RKVA)
-+#include "HwDecRender/RendererRKVA.h"
-+#endif
- #if defined(HAS_MMAL)
- #include "HwDecRender/MMALRenderer.h"
- #endif
-@@ -519,7 +522,9 @@
-   {
-     if (m_format == RENDER_FMT_VAAPI || m_format == RENDER_FMT_VAAPINV12)
-     {
--#if defined(HAVE_LIBVA)
-+#if defined(HAS_RKVA)
-+      m_pRenderer = new CRendererRKVA;
-+#elif defined(HAVE_LIBVA)
-       m_pRenderer = new CRendererVAAPI;
- #endif
-     }
 diff -Naur a/xbmc/system_gl.h b/xbmc/system_gl.h
---- a/xbmc/system_gl.h	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/system_gl.h	2017-02-13 10:36:46.287265566 +0100
+--- a/xbmc/system_gl.h	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/system_gl.h	2017-02-21 11:19:05.000000000 +0100
 @@ -46,6 +46,9 @@
      #include <OpenGLES/ES2/gl.h>
      #include <OpenGLES/ES2/glext.h>
@@ -662,15 +145,16 @@ diff -Naur a/xbmc/system_gl.h b/xbmc/system_gl.h
      #include <GLES2/gl2ext.h>
    #endif
 diff -Naur a/xbmc/windowing/egl/CMakeLists.txt b/xbmc/windowing/egl/CMakeLists.txt
---- a/xbmc/windowing/egl/CMakeLists.txt	2017-02-05 22:43:43.542389421 +0100
-+++ b/xbmc/windowing/egl/CMakeLists.txt	2017-01-11 16:48:20.000000000 +0100
-@@ -1,4 +1,4 @@
--if(OPENGLES_FOUND OR AML_FOUND OR IMX_FOUND OR MMAL_FOUND)
+--- a/xbmc/windowing/egl/CMakeLists.txt	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/windowing/egl/CMakeLists.txt	2017-02-21 11:20:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ if (NOT MIR_FOUND)
+-  if(OPENGLES_FOUND OR AML_FOUND OR IMX_FOUND OR MMAL_FOUND)
 +if(OPENGLES_FOUND OR AML_FOUND OR IMX_FOUND OR MMAL_FOUND OR RK_FOUND)
-   set(SOURCES EGLWrapper.cpp)
+     set(SOURCES EGLWrapper.cpp)
  
-   set(HEADERS EGLNativeType.h
-@@ -35,6 +35,13 @@
+     set(HEADERS EGLNativeType.h
+@@ -33,6 +33,13 @@
    list(APPEND HEADERS EGLNativeTypeIMX.h)
  endif()
  
@@ -686,7 +170,7 @@ diff -Naur a/xbmc/windowing/egl/CMakeLists.txt b/xbmc/windowing/egl/CMakeLists.t
  endif()
 diff -Naur a/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp b/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp
 --- a/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ b/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp	2017-02-10 17:18:38.065416282 +0100
++++ b/xbmc/windowing/egl/EGLNativeTypeRockchip.cpp	2017-02-10 17:18:38.000000000 +0100
 @@ -0,0 +1,483 @@
 +/*
 + *      Copyright (C) 2016-2017 Omegamoon
@@ -1248,9 +732,9 @@ diff -Naur a/xbmc/windowing/egl/EGLNativeTypeRockchip.h b/xbmc/windowing/egl/EGL
 +  EGLNativeWindowType  m_window;
 +};
 diff -Naur a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.cpp
---- a/xbmc/windowing/egl/EGLWrapper.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/windowing/egl/EGLWrapper.cpp	2017-02-12 16:46:23.165950386 +0100
-@@ -37,6 +37,11 @@
+--- a/xbmc/windowing/egl/EGLWrapper.cpp	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/windowing/egl/EGLWrapper.cpp	2017-02-21 11:23:14.000000000 +0100
+@@ -34,6 +34,11 @@
  #if defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
  #include "EGLNativeTypeAmlogic.h"
  #endif
@@ -1262,7 +746,7 @@ diff -Naur a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.c
  #include "EGLWrapper.h"
  
  #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
-@@ -102,14 +107,19 @@
+@@ -97,6 +102,9 @@
  #elif defined(TARGET_LINUX) && defined(HAS_LIBAMCODEC)
        (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation))
  #endif
@@ -1272,67 +756,16 @@ diff -Naur a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.c
        )
    {
      m_nativeTypes = nativeGuess;
- 
-     m_nativeTypes->Initialize();
-+    CLog::Log(LOGNOTICE, "Omegamoon >> %s - Cool! We're one step further!", __FUNCTION__);
-     return true;
-   }
- 
-+  CLog::Log(LOGNOTICE, "Omegamoon >> %s - That didn't work out too well...", __FUNCTION__);
-   return false;
- }
- 
-@@ -217,14 +227,48 @@
-   if (!m_nativeTypes->GetNativeDisplay((XBNativeDisplayType**)&nativeDisplay))
-     return false;
- 
--  *display = eglGetDisplay(*nativeDisplay);
-+// ===
-+  // Omegamoon >> Use eglGetPlatformDisplayEXT to get display, instead of eglGetDisplay
-+  static PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;
-+  get_platform_display = (PFNEGLGETPLATFORMDISPLAYEXTPROC) GetProcAddress("eglGetPlatformDisplayEXT");
-+
-+  if (get_platform_display) {
-+    CLog::Log(LOGNOTICE, "EGLWrapper >> Getting display using eglGetPlatformDisplayEXT");
-+/*
-+    struct gbm_device *gbm;
-+    gbm_create_device(glamor_egl->fd);
-+*/
-+    *display = get_platform_display(EGL_PLATFORM_GBM_KHR, *nativeDisplay, NULL);
-+  } else {
-+    CLog::Log(LOGNOTICE, "EGLWrapper >> Failed to get platform display; Try again using eglGetDisplay instead...");
-+    *display = eglGetDisplay(*nativeDisplay);
-+  }
-   CheckError();
-   if (*display == EGL_NO_DISPLAY)
-   {
-     CLog::Log(LOGERROR, "EGL failed to obtain display");
+@@ -220,6 +228,8 @@
      return false;
    }
-+// ===
-+/*
-+  *display = eglGetPlatformDisplayEXT(EGL_PLATFORM_GBM_KHR, *nativeDisplay, NULL);
-+  CheckError();
-+  if (*display == EGL_NO_DISPLAY)
-+  {
-+    CLog::Log(LOGNOTICE, "EGLWrapper >> Failed to get display; Try again using eglGetDisplay instead...");
-+    *display = eglGetDisplay(*nativeDisplay);
-+    CheckError();
-+    if (*display == EGL_NO_DISPLAY)
-+    {
-+      CLog::Log(LOGERROR, "EGL failed to obtain display");
-+      return false;
-+    }
-+  }
-+*/
-+  // Omegamoon <<
  
 +  // Omegamoon >> Added debugging...
 +  CLog::Log(LOGNOTICE, "EGLWrapper >> eglInitialize called...");
    status = eglInitialize(*display, 0, 0);
    CheckError();
    return status;
-@@ -288,6 +332,7 @@
+@@ -283,6 +293,7 @@
    if (!m_nativeTypes->GetNativeWindow((XBNativeWindowType**)&nativeWindow))
      return false;
  
@@ -1340,25 +773,10 @@ diff -Naur a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.c
    *surface = eglCreateWindowSurface(display, config, *nativeWindow, NULL);
    CheckError();
    return *surface != EGL_NO_SURFACE;
-diff -Naur a/xbmc/windowing/egl/Makefile.in b/xbmc/windowing/egl/Makefile.in
---- a/xbmc/windowing/egl/Makefile.in	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/windowing/egl/Makefile.in	2017-01-11 16:39:38.000000000 +0100
-@@ -12,6 +12,11 @@
- ifeq (@USE_IMXVPU@,1)
- SRCS+= EGLNativeTypeIMX.cpp
- endif
-+
-+# Omegamoon >>
-+SRCS+= EGLNativeTypeRockchip.cpp
-+# Omegamoon <<
-+
- SRCS+= EGLWrapper.cpp
- 
- LIB = windowing_egl.a
 diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
---- a/xbmc/windowing/egl/WinSystemEGL.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/windowing/egl/WinSystemEGL.cpp	2017-01-24 23:59:42.000000000 +0100
-@@ -157,6 +157,7 @@
+--- a/xbmc/windowing/egl/WinSystemEGL.cpp	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/windowing/egl/WinSystemEGL.cpp	2017-02-21 11:24:35.000000000 +0100
+@@ -158,6 +158,7 @@
    if(m_egl)
      m_egl->SetNativeResolution(res);
  
@@ -1366,7 +784,7 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    int quirks;
    m_egl->GetQuirks(&quirks);
    if (quirks & EGL_QUIRK_RECREATE_DISPLAY_ON_CREATE_WINDOW)
-@@ -169,6 +170,7 @@
+@@ -170,6 +171,7 @@
        }
    }
  
@@ -1374,7 +792,7 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    if (!m_egl->CreateSurface(m_display, m_config, &m_surface))
    {
      CLog::Log(LOGNOTICE, "%s: Could not create a surface. Trying with a fresh Native Window.",__FUNCTION__);
-@@ -186,6 +188,7 @@
+@@ -187,6 +189,7 @@
      }
    }
  
@@ -1382,7 +800,7 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    int width = 0, height = 0;
    if (!m_egl->GetSurfaceSize(m_display, m_surface, &width, &height))
    {
-@@ -276,6 +279,7 @@
+@@ -277,6 +280,7 @@
    m_displayHeight = res.iScreenHeight;
    m_fRefreshRate  = res.fRefreshRate;
  
@@ -1390,15 +808,15 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    if ((m_bWindowCreated && m_egl && m_egl->GetNativeResolution(&current_resolution)) &&
      current_resolution.iWidth == res.iWidth && current_resolution.iHeight == res.iHeight &&
      current_resolution.iScreenWidth == res.iScreenWidth && current_resolution.iScreenHeight == res.iScreenHeight &&
-@@ -287,6 +291,7 @@
+@@ -288,6 +292,7 @@
      return true;
    }
  
 +  CLog::Log(LOGNOTICE, "%s: Omegamoon >> New window needs to be created...", __FUNCTION__);
-   int delay = CSettings::GetInstance().GetInt("videoscreen.delayrefreshchange");
+   int delay = CServiceBroker::GetSettings().GetInt("videoscreen.delayrefreshchange");
    if (delay > 0)
    {
-@@ -308,6 +313,7 @@
+@@ -309,6 +314,7 @@
  
    // If we previously destroyed an existing window we need to create a new one
    // (otherwise this is taken care of by InitWindowSystem())
@@ -1406,7 +824,7 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    if (!CreateWindow(res))
    {
      CLog::Log(LOGERROR, "%s: Could not create new window",__FUNCTION__);
-@@ -322,6 +328,7 @@
+@@ -323,6 +329,7 @@
        (*i)->OnResetDisplay();
    }
  
@@ -1415,8 +833,8 @@ diff -Naur a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemE
    return true;
  }
 diff -Naur a/xbmc/windowing/X11/GLContextEGL.cpp b/xbmc/windowing/X11/GLContextEGL.cpp
---- a/xbmc/windowing/X11/GLContextEGL.cpp	2016-12-19 09:22:07.000000000 +0100
-+++ b/xbmc/windowing/X11/GLContextEGL.cpp	2017-02-13 10:59:44.009291628 +0100
+--- a/xbmc/windowing/X11/GLContextEGL.cpp	2017-02-07 00:29:48.000000000 +0100
++++ b/xbmc/windowing/X11/GLContextEGL.cpp	2017-02-21 12:15:00.689755506 +0100
 @@ -30,6 +30,9 @@
    #include <GL/glu.h>
    #include <GL/glext.h>
