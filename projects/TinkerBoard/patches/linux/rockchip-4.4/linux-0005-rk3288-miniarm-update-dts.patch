@@ -1,12 +1,11 @@
-From f8aa73c4b1fcf0d7334c90b9afc0fe8830b8021e Mon Sep 17 00:00:00 2001
+From 990192ada27aac99e902733cac5bfcd76aabb047 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 5 Mar 2017 17:30:26 +0100
-Subject: [PATCH 05/18] rk3288-miniarm: update dts
+Subject: [PATCH 05/19] rk3288-miniarm: update dts
 
 ---
  arch/arm/boot/dts/rk3288-miniarm.dts | 21 ++++++++++++++++-----
- arch/arm/boot/dts/rk3288.dtsi        | 12 ++++++------
- 2 files changed, 22 insertions(+), 11 deletions(-)
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm/boot/dts/rk3288-miniarm.dts b/arch/arm/boot/dts/rk3288-miniarm.dts
 index bd590f250f2e..98a4d3d215d4 100644
@@ -75,55 +74,4 @@ index bd590f250f2e..98a4d3d215d4 100644
 +	rockchip,bclk-fs = <128>;
  	status = "okay";
  };
- 
-diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
-index 1a8de87b02d1..d1c6e6bacdb4 100644
---- a/arch/arm/boot/dts/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rk3288.dtsi
-@@ -1043,8 +1043,8 @@
- 		status = "disabled";
- 	};
- 
--	spdif: sound@ff88b0000 {
--		compatible = "rockchip,rk3288-spdif", "rockchip,rk3066-spdif";
-+	spdif: spdif@ff8b0000 {
-+		compatible = "rockchip,rk3288-spdif";
- 		reg = <0xff8b0000 0x10000>;
- 		#sound-dai-cells = <0>;
- 		clock-names = "hclk", "mclk";
-@@ -1059,7 +1059,7 @@
- 	};
- 
- 	i2s: i2s@ff890000 {
--		compatible = "rockchip,rk3288-i2s", "rockchip,rk3066-i2s";
-+		compatible = "rockchip,rk3288-i2s";
- 		reg = <0xff890000 0x10000>;
- 		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
- 		#address-cells = <1>;
-@@ -1213,7 +1213,7 @@
- 	mipi_dsi: mipi@ff960000 {
- 		compatible = "rockchip,rk3288-mipi-dsi", "snps,dw-mipi-dsi";
- 		reg = <0xff960000 0x4000>;
--		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
- 		clocks = <&cru SCLK_MIPIDSI_24M>, <&cru PCLK_MIPI_DSI0>;
- 		clock-names = "ref", "pclk";
- 		power-domains = <&power RK3288_PD_VIO>;
-@@ -1506,7 +1506,7 @@
- 		#address-cells = <0>;
- 
- 		reg = <0xffc01000 0x1000>,
--		      <0xffc02000 0x1000>,
-+		      <0xffc02000 0x2000>,
- 		      <0xffc04000 0x2000>,
- 		      <0xffc06000 0x2000>;
- 		interrupts = <GIC_PPI 9 0xf04>;
-@@ -1756,7 +1756,7 @@
- 				rockchip,pins = <6 21 RK_FUNC_1 &pcfg_pull_up>;
- 			};
- 
--			sdmmc_cd: sdmcc-cd {
-+			sdmmc_cd: sdmmc-cd {
- 				rockchip,pins = <6 22 RK_FUNC_1 &pcfg_pull_up>;
- 			};
  

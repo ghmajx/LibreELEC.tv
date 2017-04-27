@@ -1,7 +1,7 @@
-From 3381acb38ed8bbf7ffb3087a29a606ebe0f89a2c Mon Sep 17 00:00:00 2001
+From d238c5b1a552b12df8f1765033257e30acd81674 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 5 Mar 2017 17:30:26 +0100
-Subject: [PATCH 04/18] rk3288-miniarm: enable wifi
+Subject: [PATCH 04/19] rk3288-miniarm: enable wifi
 
 ---
  arch/arm/boot/dts/rk3288-miniarm.dts | 50 ++++++++++++++++++++++++++++++++++++

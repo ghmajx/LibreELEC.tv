@@ -1,7 +1,7 @@
-From fc29120b92f8b078149657a8b0e01e7ff5c476be Mon Sep 17 00:00:00 2001
+From eb89bc1fb279a1e8d099a4b2a62c9585a39b4f13 Mon Sep 17 00:00:00 2001
 From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
 Date: Tue, 17 Jan 2017 10:29:04 +0200
-Subject: [PATCH 13/18] drm: bridge: dw-hdmi: Detect AHB audio DMA using
+Subject: [PATCH 13/19] drm: bridge: dw-hdmi: Detect AHB audio DMA using
  correct register
 
 Bit 0 in CONFIG1_ID tells whether the IP core uses an AHB slave
@@ -18,7 +18,7 @@ Link: http://patchwork.freedesktop.org/patch/msgid/20170117082910.27023-15-laure
  2 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index a25117765af4..c0ba57c9f2c8 100644
+index afbb6c83ac46..eff6ee6ed33b 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -2436,7 +2436,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,

@@ -1,14 +1,14 @@
-From 62cce7772b495763fe31ecd18fa4a077862d1751 Mon Sep 17 00:00:00 2001
+From 156eac28feb466633194ada0ce9c8b9c2c731d62 Mon Sep 17 00:00:00 2001
 From: LongChair <LongChair@hotmail.com>
 Date: Fri, 21 Apr 2017 13:39:12 +0200
-Subject: [PATCH 18/18] drm/rockchip: remove unsupported 4K freqs
+Subject: [PATCH 18/19] drm/rockchip: remove unsupported 4K freqs
 
 ---
  drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c | 3 +++
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
-index 65cc55a86478..f52eb25fca16 100644
+index 81af1747566b..d4a616cbaa62 100644
 --- a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
 +++ b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
 @@ -278,6 +278,9 @@ dw_hdmi_rockchip_mode_valid(struct drm_connector *connector,

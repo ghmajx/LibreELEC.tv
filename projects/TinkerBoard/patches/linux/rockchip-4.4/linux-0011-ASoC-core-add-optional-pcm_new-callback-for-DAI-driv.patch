@@ -1,7 +1,7 @@
-From c902ae2184349b08eb39b35e83b1a1bce3246aaf Mon Sep 17 00:00:00 2001
+From cab7b4bfeecc03b2d3d54d2cf90734fe4f117136 Mon Sep 17 00:00:00 2001
 From: Arnaud Pouliquen <arnaud.pouliquen@st.com>
 Date: Tue, 3 Jan 2017 16:52:51 +0100
-Subject: [PATCH 11/18] ASoC: core: add optional pcm_new callback for DAI
+Subject: [PATCH 11/19] ASoC: core: add optional pcm_new callback for DAI
  driver
 
 During probe, DAIs can need to perform some actions that requests

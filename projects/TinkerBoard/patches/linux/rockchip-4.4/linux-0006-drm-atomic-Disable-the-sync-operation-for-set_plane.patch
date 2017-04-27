@@ -1,7 +1,7 @@
-From 4a70329fa757d15459781f3591b9bfea20cc1339 Mon Sep 17 00:00:00 2001
+From eb1b8a88e3696bd30effe3b707df34a41b1dab89 Mon Sep 17 00:00:00 2001
 From: Randy Li <randy.li@rock-chips.com>
 Date: Wed, 30 Nov 2016 18:42:30 +0800
-Subject: [PATCH 06/18] drm/atomic: Disable the sync operation for set_plane()
+Subject: [PATCH 06/19] drm/atomic: Disable the sync operation for set_plane()
 
 Change-Id: I389723f6d287626abd27020ed60f7eeb489b345b
 Signed-off-by: Randy Li <randy.li@rock-chips.com>

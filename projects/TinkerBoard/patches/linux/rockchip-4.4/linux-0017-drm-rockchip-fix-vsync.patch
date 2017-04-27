@@ -1,7 +1,7 @@
-From 04e4022e01776adb655ce1410083da690fa6a6f5 Mon Sep 17 00:00:00 2001
+From a12f210de4d3eebf3ebedc413acf4c390f03be30 Mon Sep 17 00:00:00 2001
 From: LongChair <LongChair@hotmail.com>
 Date: Mon, 17 Apr 2017 13:18:35 +0200
-Subject: [PATCH 17/18] drm/rockchip: fix vsync
+Subject: [PATCH 17/19] drm/rockchip: fix vsync
 
 ---
  drivers/gpu/drm/rockchip/rockchip_drm_drv.h | 1 +

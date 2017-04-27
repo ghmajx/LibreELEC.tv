@@ -1,7 +1,7 @@
-From fe675baba8b16f63f5d2b47866127d2b0ce847a1 Mon Sep 17 00:00:00 2001
+From a9d8d31b91c415d3e989ed69d17b4f8c760dd48a Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Sun, 2 Apr 2017 11:33:39 +0200
-Subject: [PATCH 14/18] drm/bridge/dw-hdmi-i2s-audio: implement get_eld
+Subject: [PATCH 14/19] drm/bridge/dw-hdmi-i2s-audio: implement get_eld
 
 ---
  drivers/gpu/drm/bridge/dw-hdmi-audio.h     |  1 +
@@ -55,7 +55,7 @@ index d4ad3f0014e7..9e97217b67d2 100644
  
  static int snd_dw_hdmi_probe(struct platform_device *pdev)
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index c0ba57c9f2c8..a03ca8e227b9 100644
+index eff6ee6ed33b..7a43a7d3eff1 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -2615,6 +2615,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,

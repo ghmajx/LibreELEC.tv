@@ -1,7 +1,7 @@
-From 8f1224cbad7657e1cb2a3e96096758eddcaba29c Mon Sep 17 00:00:00 2001
+From d50471bec330440139ad61f7f01233df28be4250 Mon Sep 17 00:00:00 2001
 From: Arnaud Pouliquen <arnaud.pouliquen@st.com>
 Date: Tue, 3 Jan 2017 16:52:50 +0100
-Subject: [PATCH 10/18] DRM: add help to get ELD speaker allocation
+Subject: [PATCH 10/19] DRM: add help to get ELD speaker allocation
 
 Add helper to allow users to retrieve the speaker allocations without
 knowledge of the ELD structure.

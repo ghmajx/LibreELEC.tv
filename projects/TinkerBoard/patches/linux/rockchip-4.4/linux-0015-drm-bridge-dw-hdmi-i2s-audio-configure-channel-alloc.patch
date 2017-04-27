@@ -1,7 +1,7 @@
-From 52026ac1e5d38938f4609b0c339907f5ff4564d0 Mon Sep 17 00:00:00 2001
+From 00dee17c672af14e38e261c96ed59881b0b372a9 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
 Date: Mon, 17 Apr 2017 13:09:16 +0200
-Subject: [PATCH 15/18] drm/bridge/dw-hdmi-i2s-audio: configure channel
+Subject: [PATCH 15/19] drm/bridge/dw-hdmi-i2s-audio: configure channel
  allocation
 
 ---

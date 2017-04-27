@@ -1,7 +1,7 @@
-From e40d1c8623acbfddf7b193251786deb80302f94e Mon Sep 17 00:00:00 2001
+From 90bd29c9185d80b84203596cea940e4a30cc8e0b Mon Sep 17 00:00:00 2001
 From: Jamie Nicol <jamie.nicol@arm.com>
 Date: Fri, 22 Aug 2014 17:08:47 +0100
-Subject: [PATCH 01/18] fb: add dma-buf support
+Subject: [PATCH 01/19] fb: add dma-buf support
 
 Add support for the dma-buf exporter role to the frame buffer API. The
 importer role isn't meaningful for frame buffer devices, as the frame
