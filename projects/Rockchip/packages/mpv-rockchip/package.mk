@@ -33,9 +33,9 @@ PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-libsmbclient --disable-apple-remote --prefix=/usr --enable-rkmpp"
 
-if [ "$OPENGLES" = "mali-t76x-gbm" ]; then
+if [ "$OPENGLES" = "mali-midgard-gbm" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-drm --enable-gbm --enable-egl-drm"
-elif [ "$OPENGLES" = "mali-t76x-fbdev" ]; then
+elif [ "$OPENGLES" = "mali-midgard-fbdev" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-mali --enable-drm --disable-gbm --disable-egl-drm"
 fi
 

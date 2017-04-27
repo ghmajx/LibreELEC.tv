@@ -30,10 +30,10 @@ PKG_LONGDESC="glmark2: glmark2 is an OpenGL 2.0 and ES 2.0 benchmark"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$OPENGLES" = "mali-t76x-gbm" ]; then
+if [ "$OPENGLES" = "mali-midgard-gbm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
   GLMARK2_FLAVOR="--with-flavors=drm-glesv2"
-elif [ "$OPENGLES" = "mali-t76x-fbdev" -o "$OPENGLES" = "opengl-meson" ]; then
+elif [ "$OPENGLES" = "mali-midgard-fbdev" -o "$OPENGLES" = "opengl-meson" ]; then
   GLMARK2_FLAVOR="--with-flavors=fbdev-glesv2 --for-mali"
 fi
 

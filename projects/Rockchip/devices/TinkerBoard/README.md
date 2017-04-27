@@ -39,16 +39,16 @@ This is an experimental project for the ASUS Tinker Board.
 
 * FFmpeg: https://github.com/LongChair/FFmpeg/commits/rockchip
 * mpv: https://github.com/LongChair/mpv/commits/rockchip
-* Kodi: https://github.com/Kwiboo/plex-home-theater/commits/tinkerboard-drm
-* Linux: https://github.com/Kwiboo/linux-rockchip/commits/tinkerboard-4.4
+* Kodi: https://github.com/Kwiboo/plex-home-theater/commits/rockchip-krypton
+* Linux: https://github.com/Kwiboo/linux-rockchip/commits/rockchip-4.4
 
 **Build**
 
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=no make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=no LINUX=rockchip-4.10 make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=no LINUX=rockchip-4.11 make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=glmark2 make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=glmark2 OPENGLES=mali-t76x-fbdev make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=mpv-rockchip make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=kodi make image`
-* `PROJECT=TinkerBoard ARCH=arm MEDIACENTER=kodi OPENGLES=mali-t76x-fbdev make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=no make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=no LINUX=rockchip-4.10 make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=no LINUX=rockchip-4.11 make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=glmark2 make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=glmark2 OPENGLES=mali-midgard-fbdev make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=mpv-rockchip make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=kodi make image`
+* `PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm MEDIACENTER=kodi OPENGLES=mali-midgard-fbdev make image`

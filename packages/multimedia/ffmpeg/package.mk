@@ -49,7 +49,7 @@ else
   FFMPEG_VDPAU="--disable-vdpau"
 fi
 
-if [ "$PROJECT" = "TinkerBoard" ]; then
+if [ "$PROJECT" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
   FFMPEG_RKMPP="--enable-rkmpp"
 else

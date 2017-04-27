@@ -37,12 +37,12 @@ PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/project/cmake/CMakeLists.txt"
 
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dbus"
 
-if [ "$PROJECT" = "TinkerBoard" -a "$OPENGLES" = "mali-t76x-fbdev" ]; then
+if [ "$PROJECT" = "Rockchip" -a "$OPENGLES" = "mali-midgard-fbdev" ]; then
   KODI_GBM="-DENABLE_RK=ON"
 elif [ "$WINDOWMANAGER" = "gbm" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
   KODI_GBM="-DENABLE_GBM=ON"
-  if [ "$PROJECT" = "TinkerBoard" ]; then
+  if [ "$PROJECT" = "Rockchip" ]; then
     KODI_GBM="-DENABLE_GBM=ON -DENABLE_RK=ON"
   fi
 else
