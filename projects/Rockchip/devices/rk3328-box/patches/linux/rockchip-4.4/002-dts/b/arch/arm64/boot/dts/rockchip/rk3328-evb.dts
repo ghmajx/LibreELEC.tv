@@ -1,0 +1,7 @@
+/dts-v1/;
+
+#include "rk3328-evb.dtsi"
+
+/ {
+	model = "Rockchip RK3328 EVB";
+};
