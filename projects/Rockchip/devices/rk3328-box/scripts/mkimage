@@ -16,4 +16,203 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# TODO
+##########
+
+. config/functions
+
+##########
+
+TAG="Rockchip Image -"
+LE_TMP=$TARGET_IMG/system_temp
+FS_TMP=$TARGET_IMG/$IMAGE_NAME-system.img
+ST_TMP=$TARGET_IMG/$IMAGE_NAME-storage.img
+ER_TMP=$TARGET_IMG/save_error
+FW_DIR=$BUILD/rockchip-tools/firmware
+
+cp -PR $BUILD/linux-$(kernel_version)/kernel.img $TARGET_IMG/$IMAGE_NAME-kernel.img
+cp -PR $BUILD/linux-$(kernel_version)/resource.img $TARGET_IMG/$IMAGE_NAME-resource.img
+#if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  cp -PR $BUILD/linux-$(kernel_version)/boot.img $TARGET_IMG/$IMAGE_NAME-boot.img
+#fi
+  
+chmod 0644 $TARGET_IMG/$IMAGE_NAME-kernel.img
+chmod 0644 $TARGET_IMG/$IMAGE_NAME-resource.img
+#if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  chmod 0644 $TARGET_IMG/$IMAGE_NAME-boot.img
+#fi
+
+cleanup() {
+  rm -rf $LE_TMP
+  rm $ER_TMP
+  echo
+  exit
+}
+
+show_error() {
+  echo "$TAG *** FATAL ERROR ***"
+  echo
+  cat $ER_TMP
+  echo
+  cleanup
+  exit
+}
+
+remove() {
+  if [ -L $1 ]; then
+    rm $1
+    #echo "Symbolic link $1 removed"
+  elif [ -e $1 ]; then
+    rm $1
+    #echo "File $1 removed"
+  #else
+    #echo "File $1 does not exist"
+  fi
+}
+
+# Omegamoon >> Create rockchip image
+echo "$TAG Creating Rockchip firmware image..."
+
+# Omegamoon >> Make a ext4 (system) partition, which only contains SYSTEM file
+#   LibreELEC created a squashfs filesystem, and stored it in a SYSTEM file 
+#   A new ext4 image is created, containing only the SYSTEM file from the temporary directory
+# The SYSTEM file is copied into a temporary directory.
+mkdir $LE_TMP
+cp $TARGET_IMG/$IMAGE_NAME.system $LE_TMP/SYSTEM
+
+# Determine the size of the image we need
+# Calculate: filesize(SYSTEM)+10Mb overhead
+system_size=`ls -l $LE_TMP/SYSTEM | awk '{print $5;}'`
+system_size=$((($system_size + (1048576*10))/1024))
+
+echo "$TAG Create an empty system image file..."
+dd if=/dev/zero of=$FS_TMP bs=1024 count=$system_size >$ER_TMP 2>&1 || show_error
+echo "$TAG Format the system image file as ext4 file system..." 
+mke2fs -F -q -t ext4 -m 0 $FS_TMP
+echo "$TAG Adjust some of the system filesystem parameters of the image file..."
+tune2fs -c -1 -i 0 -L system $FS_TMP >$ER_TMP 2>&1 || show_error
+echo "$TAG Check the system image file..."
+e2fsck -n $FS_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+    
+echo "$TAG Populate the ext4 system image file with the SYSTEM file..."
+populatefs -U -d $LE_TMP $FS_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+echo "$TAG Check the image file..."
+e2fsck -n $FS_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+
+# Omegamoon >> Create empty storage partition, adding .please_only_resize_me to be handled on 1st boot
+rm -rf $LE_TMP
+mkdir $LE_TMP
+touch $LE_TMP/.please_only_resize_me
+    
+echo "$TAG Create an empty storage image file..."
+dd if=/dev/zero of=$ST_TMP bs=1M count=30 >$ER_TMP 2>&1 || show_error
+echo "$TAG Format the storage image file as ext4 file system..." 
+mke2fs -F -q -t ext4 -m 0 $ST_TMP
+echo "$TAG Adjust some of the storage filesystem parameters of the image file..."
+tune2fs -c -1 -i 0 -L system $ST_TMP >$ER_TMP 2>&1 || show_error
+echo "$TAG Check the storage image file..."
+e2fsck -n $ST_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+
+echo "$TAG Populate the ext4 storage image file with a auto-resize file..."
+populatefs -U -d $LE_TMP $ST_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+echo "$TAG Check the image file..."
+e2fsck -n $ST_TMP >$ER_TMP 2>&1 || show_error
+# Write cached changes to disk
+sync
+
+# Remove any old (leftover) images
+remove $FW_DIR/Image/kernel.img
+remove $FW_DIR/Image/resource.img
+#if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  remove $FW_DIR/Image/boot.img
+#fi
+remove $FW_DIR/Image/system.img
+remove $FW_DIR/Image/recovery.img
+remove $FW_DIR/Image/storage.img
+
+# Create symbolic links to generated image files
+ln -sv $TARGET_IMG/$IMAGE_NAME-kernel.img $FW_DIR/Image/kernel.img >/dev/null
+ln -sv $TARGET_IMG/$IMAGE_NAME-resource.img $FW_DIR/Image/resource.img >/dev/null
+#if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  ln -sv $TARGET_IMG/$IMAGE_NAME-boot.img $FW_DIR/Image/boot.img >/dev/null
+#fi
+ln -sv $TARGET_IMG/$IMAGE_NAME-system.img $FW_DIR/Image/system.img >/dev/null
+#if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  ln -sv $TARGET_IMG/$IMAGE_NAME-boot.img $FW_DIR/Image/recovery.img >/dev/null
+#fi
+ln -sv $TARGET_IMG/$IMAGE_NAME-storage.img $FW_DIR/Image/storage.img >/dev/null
+
+# Head over to the firmware creation directory...
+pushd $FW_DIR > /dev/null
+# Copy device-specific firmware package file
+if [ -f "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/package-file" ]; then
+  echo ">> Using package-file specific to ${DEVICE}"
+  cp "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/package-file" .
+elif [ -f "$PROJECT_DIR/$PROJECT/package-file" ]; then
+  echo ">> Using package-file specific to ${PROJECT}"
+  cp "$PROJECT_DIR/$PROJECT/package-file" .
+fi
+
+# Copy device-specific firmware parameter file
+if [ -f "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/parameter" ]; then
+  echo ">> Using parameter file specific to ${DEVICE}"
+  cp "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/parameter" .
+elif [ -f "$PROJECT_DIR/$PROJECT/parameter" ]; then
+  echo ">> Using parameter file specific to ${PROJECT}"
+  cp "$PROJECT_DIR/$PROJECT/parameter" .
+fi
+    
+# Get bootloader filename from package-file, which we use to create firmware image
+bootloader=`sed -n 's/^bootloader//p' package-file | xargs`
+echo ">> Bootloader used: ${bootloader}"
+
+# Copy device-specific firmware bootloader file
+if [ -f "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/bootloader.bin" ]; then
+  echo ">> Using bootloader file specific to ${DEVICE}"
+  cp "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/bootloader.bin" ./${bootloader}
+elif [ -f "$PROJECT_DIR/$PROJECT/bootloader.bin" ]; then
+  echo ">> Using bootloader file specific to ${PROJECT}"
+  cp "$PROJECT_DIR/$PROJECT/bootloader.bin" ./${bootloader}
+fi
+    
+# Copy prebuilt, device-specific uboot file if provided
+if [ -f "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/uboot.img" ]; then
+  echo ">> Using uboot.img file specific to ${DEVICE}"
+  cp "$PROJECT_DIR/$PROJECT/devices/$DEVICE/image/uboot.img" Image/uboot.img
+fi
+
+# Build an update.img
+./afptool -pack ./ Image/update.img
+
+# Omegamoon >> RKSOC is specified in options file now
+#RKSOC=`sed -n 's/^MACHINE: //p' parameter | xargs`
+
+echo ">> Generating firmware image for $SOC"
+if [ "$SOC" = "rk312x" ]; then
+  ./rkImageMaker -RK312A ./${bootloader} Image/update.img update.img -os_type:androidos
+elif [ "$SOC" = "rk3288" ]; then
+  ./rkImageMaker -RK320A ./${bootloader} Image/update.img update.img -os_type:androidos
+elif [ "$SOC" = "rk322x" ]; then
+  ./rkImageMaker -RK322A ./${bootloader} Image/update.img update.img -os_type:androidos
+fi
+    
+# update.img is new format, Image\update.img is old format, so delete older format
+rm Image/update.img
+# Jump back to the original directory...
+popd > /dev/null
+
+# Copy over the generated update.img firmware file...
+echo "$TAG Flashable firmware can be found here: $TARGET_IMG/$IMAGE_NAME-update.img"
+cp $FW_DIR/update.img $TARGET_IMG/$IMAGE_NAME-update.img
+
+# Clean up by removing temporary directory
+cleanup
