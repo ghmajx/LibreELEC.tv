@@ -122,12 +122,20 @@ else
   PATCH_ARCH="$TARGET_ARCH"
 fi
 
+# Omegamoon >> Added support for 64bits kernel and 32bits userspace
+if [[ -n "$KERNEL_PATCH_ARCH" ]]; then
+  PATCH_ARCH="$KERNEL_PATCH_ARCH"
+fi
+# Omegamoon <<
+
 PATCH_DIRS_PKG=""
 PATCH_DIRS_PRJ=""
 if [ -n "$PKG_PATCH_DIRS" ]; then
   for patch_dir in $PKG_PATCH_DIRS; do
     [ -d $PKG_DIR/patches/$patch_dir ] && PATCH_DIRS_PKG="$PATCH_DIRS_PKG $PKG_DIR/patches/$patch_dir/*.patch"
     [ -d $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir ] && PATCH_DIRS_PRJ="$PATCH_DIRS_PRJ $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir/*.patch"
+    # Omegamoon >> Added patch directory to support device patches per package version
+    [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/$patch_dir ] && PATCH_DIRS_PRJ="$PATCH_DIRS_PRJ $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/$patch_dir/*.patch"
   done
 fi
 
@@ -140,7 +148,8 @@ for i in $PKG_DIR/patches/$PKG_NAME-*.patch \
          $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH/*.patch \
          $PATCH_DIRS_PRJ \
          $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION/*.patch \
-         $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/*.patch; do
+         $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/*.patch \
+         ; do
 
   thisdir="$(dirname "$i")"
 
