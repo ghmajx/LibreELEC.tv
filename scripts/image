@@ -166,7 +166,9 @@ $SCRIPTS/install gcc
 $SCRIPTS/install linux
 $SCRIPTS/install linux-drivers
 $SCRIPTS/install linux-firmware
+#printf "Omegamoon >> Okay until here [1] (BOOTLOADER='$BOOTLOADER')...\n"
 $SCRIPTS/install $BOOTLOADER
+#printf "Omegamoon >> Okay until here [2]...\n"
 $SCRIPTS/install busybox
 $SCRIPTS/install util-linux
 $SCRIPTS/install corefonts
@@ -237,6 +239,12 @@ find $INSTALL/usr/lib/modules/$MODVER/ -name *.ko | \
 $ROOT/$TOOLCHAIN/bin/depmod -b $INSTALL/usr $MODVER 2> /dev/null
 
 # strip kernel modules
+# Omegamoon >> Added support for 64bits kernel and 32bits userspace
+if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm"  ]; then
+  export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+  STRIP=aarch64-elf-strip
+fi
+# Omegamoon <<
 for MOD in `find $INSTALL/usr/lib/modules/ -type f -name *.ko`; do
   $STRIP --strip-debug $MOD
 done
