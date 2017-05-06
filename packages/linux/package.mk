@@ -59,7 +59,14 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
   rockchip-4.4)
-    PKG_VERSION="e1653e4"
+    if [ "$DEVICE" = "rk3328-box" ]; then
+      # Omegamoon >> Use release-4.4-rk3328 branch
+      PKG_VERSION="c63dff1"
+      PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rockchip-tools"
+    else
+      PKG_VERSION="e1653e4"
+    fi
+    
     PKG_URL="https://github.com/rockchip-linux/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="kernel-$PKG_VERSION*"
     PKG_PATCH_DIRS="rockchip-4.4"
@@ -84,7 +91,16 @@ esac
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_HOST="ARCH=$TARGET_KERNEL_ARCH headers_check"
+# Omegamoon >> Added support for 64bits kernel and 32bits userspace
+if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
+  export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+  TARGET_PREFIX=aarch64-elf-
+  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
+else
+  PKG_MAKE_OPTS_HOST="ARCH=$TARGET_KERNEL_ARCH headers_check"
+fi
+# Omegamoon <<
 
 if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-ucode x86-firmware"
@@ -154,7 +170,7 @@ post_patch() {
   fi
 
   # enable different libcec version for imx6 project with kernel 4.4
-  # using customized kernel driver
+  # using customized kernel driverPROJECT
   if [ "$PROJECT" = "imx6" ]; then
     if [ "$LIBCEC_TYPE" = "xbian" -a "$LINUX" = "imx6-4.4-xbian" ]; then
       sed -i -e "s|# CONFIG_MXC_HDMI_CEC is not set|CONFIG_MXC_HDMI_CEC=y|" $PKG_BUILD/.config
@@ -164,7 +180,14 @@ post_patch() {
 }
 
 makeinstall_host() {
-  make ARCH=$TARGET_KERNEL_ARCH INSTALL_HDR_PATH=dest headers_install
+# Omegamoon >> Added support for 64bits kernel and 32bits userspace
+  if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
+    make ARCH=$TARGET_ARCH INSTALL_HDR_PATH=dest headers_install
+  else
+    make ARCH=$TARGET_KERNEL_ARCH INSTALL_HDR_PATH=dest headers_install
+  fi
+# Omegamoon <<
+
   mkdir -p $SYSROOT_PREFIX/usr/include
     cp -R dest/include/* $SYSROOT_PREFIX/usr/include
 }
@@ -218,14 +241,30 @@ make_target() {
       $ANDROID_BOOTIMG_OPTIONS --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
     mv -f arch/$TARGET_KERNEL_ARCH/boot/boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
   fi
+
+  if [ "$PROJECT" = "Rockchip" ] && [ "$DEVICE" = "rk3328-box" ]; then
+    echo "Omegamoon >> Creating Rockchip boot.img file..."
+    LDFLAGS="" $ROOT/$BUILD/rockchip-tools/firmware/mkbootimg \
+      --kernel arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET \
+      --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
+      --second ./resource.img \
+      --output ./boot.img
+   fi
 }
 
 makeinstall_target() {
   if [ "$BOOTLOADER" = "u-boot" ]; then
     mkdir -p $INSTALL/usr/share/bootloader
-    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb; do
-      cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
-    done
+    
+    if [ "$PROJECT" = "Rockchip" ] && [ "$TARGET_KERNEL_ARCH" = "arm64" ]; then
+      for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/rockchip/*.dtb; do
+        cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
+      done
+    else
+      for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb; do
+        cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
+      done
+    fi
     if [ -d arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic -a -f "arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$KERNEL_UBOOT_EXTRA_TARGET" ]; then
       cp "arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$KERNEL_UBOOT_EXTRA_TARGET" $INSTALL/usr/share/bootloader/dtb.img 2>/dev/null || :
     fi
