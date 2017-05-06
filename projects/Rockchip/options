@@ -6,44 +6,53 @@
   # generated code.
     case $TARGET_ARCH in
       arm)
-        # TARGET_CPU:
-        # arm2 arm250 arm3 arm6 arm60 arm600 arm610 arm620 arm7 arm7m arm7d
-        # arm7dm arm7di arm7dmi arm70 arm700 arm700i arm710 arm710c
-        # arm7100 arm720 arm7500 arm7500fe arm7tdmi arm7tdmi-s arm710t
-        # arm720t arm740t strongarm strongarm110 strongarm1100
-        # strongarm1110 arm8 arm810 arm9 arm9e arm920 arm920t arm922t
-        # arm946e-s arm966e-s arm968e-s arm926ej-s arm940t arm9tdmi
-        # arm10tdmi arm1020t arm1026ej-s arm10e arm1020e arm1022e
-        # arm1136j-s arm1136jf-s mpcore mpcorenovfp arm1156t2-s
-        # arm1176jz-s arm1176jzf-s cortex-a8 cortex-a9 cortex-r4
-        # cortex-r4f cortex-m3 cortex-m1 xscale iwmmxt iwmmxt2 ep9312.
+        if [ "$DEVICE" = "TinkerBoard" ]; then
+          # TARGET_CPU:
+          # arm2 arm250 arm3 arm6 arm60 arm600 arm610 arm620 arm7 arm7m arm7d
+          # arm7dm arm7di arm7dmi arm70 arm700 arm700i arm710 arm710c
+          # arm7100 arm720 arm7500 arm7500fe arm7tdmi arm7tdmi-s arm710t
+          # arm720t arm740t strongarm strongarm110 strongarm1100
+          # strongarm1110 arm8 arm810 arm9 arm9e arm920 arm920t arm922t
+          # arm946e-s arm966e-s arm968e-s arm926ej-s arm940t arm9tdmi
+          # arm10tdmi arm1020t arm1026ej-s arm10e arm1020e arm1022e
+          # arm1136j-s arm1136jf-s mpcore mpcorenovfp arm1156t2-s
+          # arm1176jz-s arm1176jzf-s cortex-a8 cortex-a9 cortex-r4
+          # cortex-r4f cortex-m3 cortex-m1 xscale iwmmxt iwmmxt2 ep9312.
+            TARGET_CPU="cortex-a17"
 
-        TARGET_CPU="cortex-a17"
+          # TARGET_FLOAT:
+          # Specifies which floating-point ABI to use. Permissible values are:
+          # soft softfp hard
+            TARGET_FLOAT="hard"
 
-        # TARGET_FLOAT:
-        # Specifies which floating-point ABI to use. Permissible values are:
-        # soft softfp hard
-
-        TARGET_FLOAT="hard"
-
-        # TARGET_FPU:
-        # This specifies what floating point hardware (or hardware emulation) is
-        # available on the target. Permissible names are:
-        # fpa fpe2 fpe3 maverick vfp vfpv3 vfpv3-fp16 vfpv3-d16 vfpv3-d16-fp16
-        # vfpv3xd vfpv3xd-fp16 neon neon-fp16 vfpv4 vfpv4-d16 fpv4-sp-d16
-        # neon-vfpv4.
-
-        TARGET_FPU="neon-vfpv4"
+          # TARGET_FPU:
+          # This specifies what floating point hardware (or hardware emulation) is
+          # available on the target. Permissible names are:
+          # fpa fpe2 fpe3 maverick vfp vfpv3 vfpv3-fp16 vfpv3-d16 vfpv3-d16-fp16
+          # vfpv3xd vfpv3xd-fp16 neon neon-fp16 vfpv4 vfpv4-d16 fpv4-sp-d16
+          # neon-vfpv4.
+          TARGET_FPU="neon-vfpv4"
+        elif [ "$DEVICE" = "rk3328-box" ]; then
+          # Omegamoon >> rk3328 currently needs 64bits kernel and 32bits userspace
+          TARGET_KERNEL_ARCH="arm64"
+          KERNEL_PATCH_ARCH="aarch64"
+          TARGET_FLOAT=hard
+          TARGET_CPU="cortex-a53"
+          TARGET_CPU_FLAGS="+crc"
+          
+          # Omegamoon >> TODO - Check following FPU Flags
+          # TARGET_FPU="neon-fp-armv8"
+        fi
         ;;
 
       aarch64)
         TARGET_CPU="cortex-a53"
-        TARGET_FPU="neon-vfpv4"
+        TARGET_CPU_FLAGS="+crc+fp+simd"
         ;;
     esac
 
   # Bootloader to use (syslinux / u-boot / bcm2835-bootloader)
-    BOOTLOADER="u-boot"
+  BOOTLOADER="u-boot"
 
   # u-boot version to use (default)
     UBOOT_VERSION=""
@@ -52,7 +61,7 @@
     if [ "$DEVICE" = "TinkerBoard" ]; then
       UBOOT_CONFIG="tinker-rk3288_config"
     elif [ "$DEVICE" = "rk3328-box" ]; then
-      UBOOT_CONFIG="evb-rk3328_defconfig"
+      UBOOT_CONFIG="rk3328_box_defconfig"
     fi
 
   # Target Configfile for u-boot
@@ -72,7 +81,7 @@
     if [ "$DEVICE" = "TinkerBoard" ]; then
       KERNEL_MAKE_EXTRACMD="rk3288-miniarm.dtb"
     elif [ "$DEVICE" = "rk3328-box" ]; then
-      KERNEL_MAKE_EXTRACMD="rockchip/rk3328-evb.dtb"
+      KERNEL_MAKE_EXTRACMD="rockchip/rk3328-box.dtb rk3328-box.img kernel.img"
     fi
 
   # Kernel to use. values can be:
