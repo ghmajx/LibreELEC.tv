@@ -19,4 +19,9 @@
 # copy files needed for image
 mkdir -p $RELEASE_DIR/3rdparty/bootloader
   cp $INSTALL/usr/share/bootloader/u-boot.rockchip $RELEASE_DIR/3rdparty/bootloader
-  cp $INSTALL/usr/share/bootloader/rk3288-*.dtb $RELEASE_DIR/3rdparty/bootloader/rk3288-miniarm.dtb
+
+  if [ "$DEVICE" = "TinkerBoard" ]; then
+    cp $INSTALL/usr/share/bootloader/rk3288-*.dtb $RELEASE_DIR/3rdparty/bootloader/rk3288-miniarm.dtb
+  elif [ "$DEVICE" = "rk3328-box" ]; then
+    cp $INSTALL/usr/share/bootloader/rk3328-*.dtb $RELEASE_DIR/3rdparty/bootloader/rk3328-box.dtb
+  fi
