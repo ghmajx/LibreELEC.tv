@@ -17,7 +17,13 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="15b7a3d"
+if [ "$DEVICE" = "rk3328-box" ]; then
+  # branch rkproduct
+  PKG_VERSION="8adeb23"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"
+else
+  PKG_VERSION="15b7a3d"
+fi
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.denx.de/wiki/U-Boot"
@@ -39,20 +45,35 @@ pre_configure_target() {
 }
 
 make_target() {
-  CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make mrproper
-  CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make $UBOOT_CONFIG
-  CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make HOSTCC="$HOST_CC" HOSTSTRIP="true"
+  if [ "$DEVICE" = "rk3328-box" ]; then
+    export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$ROOT/$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_CONFIG
+    CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make ARCHV=aarch64 HOSTCC="$HOST_CC" HOSTSTRIP="true"
+  else
+    CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make mrproper
+    CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make $UBOOT_CONFIG
+    CROSS_COMPILE="$TARGET_PREFIX" CFLAGS="" LDFLAGS="" ARCH=arm make HOSTCC="$HOST_CC" HOSTSTRIP="true"
+  fi
 }
 
 makeinstall_target() {
-  tools/mkimage \
-    -n rk3288 \
-    -T rksd \
-    -d spl/u-boot-spl-dtb.bin \
-    u-boot.rockchip
-  cat u-boot-dtb.bin >> u-boot.rockchip
+  if [ "$DEVICE" = "TinkerBoard" ]; then
+    tools/mkimage \
+      -n rk3288 \
+      -T rksd \
+      -d spl/u-boot-spl-dtb.bin \
+      u-boot.rockchip
+  
+    cat u-boot-dtb.bin >> u-boot.rockchip
 
-  mkdir -p $INSTALL/usr/share/bootloader
-    cp -PRv u-boot.rockchip $INSTALL/usr/share/bootloader
-    cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+    mkdir -p $INSTALL/usr/share/bootloader
+      cp -PRv u-boot.rockchip $INSTALL/usr/share/bootloader
+      cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+  elif [ "$DEVICE" = "rk3328-box" ]; then
+    mkdir -p $INSTALL/usr/share/bootloader
+      cp -PRv uboot.img $INSTALL/usr/share/bootloader/u-boot.rockchip
+      # cp -PRv trust.img $INSTALL/usr/share/bootloader
+      cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+  fi
 }
