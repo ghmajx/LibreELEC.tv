@@ -1,0 +1,12 @@
+diff -Naur a/drivers/video/rockchip/vpu/mpp_dev_common.c b/drivers/video/rockchip/vpu/mpp_dev_common.c
+--- a/drivers/video/rockchip/vpu/mpp_dev_common.c	2017-04-18 09:11:37.000000000 +0200
++++ b/drivers/video/rockchip/vpu/mpp_dev_common.c	2017-05-04 13:55:16.271596385 +0200
+@@ -439,8 +439,6 @@
+ 			mpp_err("error: pid %d wait task ret %d\n",
+ 				session->pid, ret);
+ 		} else if (ret == 0) {
+-			int dec_num;
+-
+ 			mpp_err("error: pid %d wait %d task done timeout\n",
+ 				session->pid,
+ 				atomic_read(&session->task_running));
